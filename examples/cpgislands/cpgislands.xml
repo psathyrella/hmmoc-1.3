@@ -1,0 +1,219 @@
+<?xml version="1.0"?>
+<!--
+      This file is part of HMMoC 1.3, a hidden Markov model compiler.
+      Copyright (C) 2007 by Gerton Lunter, Oxford University.
+  
+      HMMoC is free software; you can redistribute it and/or modify
+      it under the terms of the GNU General Public License as published by
+      the Free Software Foundation; either version 2 of the License, or
+      (at your option) any later version.
+  
+      HMMOC is distributed in the hope that it will be useful,
+      but WITHOUT ANY WARRANTY; without even the implied warranty of
+      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+      GNU General Public License for more details.
+  
+      You should have received a copy of the GNU General Public License
+      along with HMMoC; if not, write to the Free Software
+      Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+-->
+
+
+<hml>
+
+
+
+<author>Gerton Lunter</author>
+
+
+
+<alphabet id="nucleotides">
+  ACGT
+</alphabet>
+
+
+
+<emission id="sequence">
+  <alphabet idref="nucleotides"/>
+</emission>
+
+
+
+<output id="sequence1">
+ <alphabet idref="nucleotides"/>
+ <identifier type="length" value="iLen1"/>
+ <identifier type="sequence" value="iSequence1"/>
+ <code type="parameter" value="char* iSequence1"/>
+ <code type="parameter" value="int iLen1"/>
+</output>
+
+
+
+<hmm id="CpGisland">
+
+ <description>  Model to identify CpG islands in nucleotide sequences   </description>
+
+ <outputs>
+  <!-- Define number of emission 'tapes', and their alphabets -->
+  <output idref="sequence1"/>
+ </outputs>
+
+
+ <clique id="block1">
+  <state id="start"/>
+ </clique>
+
+ <!-- The cpgisland state must also be of order 1, otherwise the first output when coming 
+      from the normal state cannot refer to the previous symbol. -->
+
+ <clique id="block2">
+  <state id="normal" emission="emitnormal"><order output="sequence1" depth="1"/></state>
+  <state id="cpgisland" emission="emitcpgisland"><order output="sequence1" depth="1"/></state>
+ </clique>
+
+ <clique id="block3">
+  <state id="end" emission="empty"/>
+ </clique>
+
+
+ <graph>
+  <clique idref="block1"/>
+  <clique idref="block2"/>
+  <clique idref="block3"/>
+ </graph>
+
+
+  <emission id="emitnormal">
+   <!--  This defines the emission distribution for 'normal' sequence, depleted of CpGs -->
+   <output idref="sequence1"/>
+   <probability>
+    <code type="statement">
+     <!-- Bind identifier that holds result of computation -->
+     <identifier type="result" value="iProb"/>
+     <!-- Bind identifier that refers to currently emitted symbol -->
+     <identifier output="sequence1" value="iSymb1"/>
+     <!-- Bind identifier that refers to previous symbol -->
+     <identifier output="sequence1" depth="1" value="iSymb2"/>  
+     <!-- Define the emission array as a parameter -->
+     <code type="parameter" value="double* aEmission"/>
+     <![CDATA[
+
+       if (iSymb2 != 'C') {
+         switch (iSymb1) {
+         case 'A': iProb = aEmission[0]; break;
+         case 'T': iProb = aEmission[1]; break;
+         case 'C': iProb = aEmission[2]; break;
+         case 'G': iProb = aEmission[3]; break;
+         default: cout << "Error!" << endl;
+         }
+       } else {
+         switch (iSymb1) {
+         case 'A': iProb = aEmission[4]; break;
+         case 'T': iProb = aEmission[5]; break;
+         case 'C': iProb = aEmission[6]; break;
+         case 'G': iProb = aEmission[7]; break;
+         default: cout << "Error!" << endl;
+         }
+       }
+
+     ]]>
+    </code>
+   </probability>
+  </emission>
+       
+         
+
+  <emission id="emitcpgisland">
+   <!-- This defines the emission distribution for CpG islands - no depletion of CpGs here -->
+   <output idref="sequence1"/>
+   <probability>
+    <code type="statement">
+     <identifier output="sequence1" value="iSymb1"/>
+     <identifier type="result" value="iProb"/>
+     <![CDATA[
+
+       switch (iSymb1) {
+         case 'A': iProb = aEmission[0]; break;
+         case 'T': iProb = aEmission[1]; break;
+         case 'C': iProb = aEmission[2]; break;
+         case 'G': iProb = aEmission[3]; break;
+         default: cout << "Error!" << endl;
+       }
+
+     ]]>
+    </code>
+   </probability>
+  </emission>
+
+
+  <emission id="empty">
+   <probability depends=""><code type="expression"><identifier output="sequence1"/> 1.0 </code></probability>
+  </emission>
+
+
+  <transitions>
+
+  <transition from="start"     to="cpgisland" probability="full"    id="start-cpg"/>
+  <transition from="normal"    to="end"       probability="epsilon" id="nrm-end"/>    
+  <transition from="normal"    to="cpgisland" probability="go"      id="nrm-cpg"/>
+  <transition from="normal"    to="normal"    probability="stay"    id="nrm-nrm"/>
+  <transition from="cpgisland" to="end"       probability="epsilon" id="cpg-end"/>    
+  <transition from="cpgisland" to="cpgisland" probability="stay"    id="cpg-cpg"/>
+  <transition from="cpgisland" to="normal"    probability="go"      id="cpg-nrm"/>
+
+  </transitions>
+
+
+  <!-- Probabilities follow -->
+
+  <probability id="full"><code> 1.0 </code></probability>
+
+  <probability id="stay">
+   <code>
+     <code type="parameter" value="double iStay"/>
+     <code type="parameter" value="double iEpsilon"/>
+     iStay
+   </code>
+  </probability>  
+
+  <probability id="go"> <code value="1.0-iStay-iEpsilon"/> </probability>
+
+  <probability id="epsilon"> <code value="iEpsilon"/> </probability>
+
+</hmm>
+
+
+
+
+<!-- Code generation -->
+
+
+<forward outputTable="yes" name="Forward" id="fw">
+  <hmm idref="CpGisland"/>
+</forward>
+
+<backward outputTable="yes" baumWelch="yes" name="Backward" id="bw">
+  <hmm idref="CpGisland"/>
+</backward>
+
+<sample name="Sample" id="smp">
+  <hmm idref="CpGisland"/>
+</sample>
+
+
+<viterbi name="Viterbi" id="vit">
+  <hmm idref="CpGisland"/>
+</viterbi>
+
+
+<codeGeneration realtype="bfloat" file="cpgislands.cc" header="cpgislands.h" language="C++">
+
+  <forward idref="fw"/>
+  <backward idref="bw"/>
+  <sample idref="smp"/>
+  <viterbi idref="vit"/>
+
+</codeGeneration>
+
+
+</hml>

@@ -1,0 +1,4 @@
+modifications to get it to work:
+  include <limits> in interface/algebras.h
+  added -Wno-deprecated flag to makefile
+  include cmath instead of math.h (math.h on this install has no abs function)

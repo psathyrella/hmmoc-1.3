@@ -1,0 +1,49 @@
+#!/bin/sh
+
+########################################################################
+#
+# Don't move this file from its present location -- rather, either
+# set your $PATH to point to this directory, or create a symlink from
+# a directory in your path to here
+#
+# The three library .jar files must be in the same directory as the 
+# main hmmoc.jar file.
+#
+#######################################################################
+
+# java interpreter to use
+java=java
+
+# resolve links - $0 may be a link to application
+prg="$0"
+
+# need this for relative symlinks
+while [ -h "$prg" ] ; do
+    ls=`ls -ld "$prg"`
+    link=`expr "$ls" : '.*-> \(.*\)$'`
+    if expr "$link" : '/.*' > /dev/null; then
+	prg="$link"
+    else
+	prg="`dirname "$prg"`/$link"
+    fi
+done
+
+# make it fully qualified
+saveddir=`pwd`
+unqual=`dirname "$prg"`/..
+libdir=`cd "$unqual">/dev/null && pwd`/lib
+cd "$saveddir"
+hmmoc=$libdir/hmmoc.jar
+
+# test that it's actually there
+if [ ! -f "$hmmoc" ] ; then
+    echo Cannot find $hmmoc -- has it been built?
+    exit 1
+fi
+
+# set classpath
+export CLASSPATH=$libdir/jdom.jar:$libdir/xerces.jar:$libdir/xml-apis.jar
+
+# go go go
+$java -jar $hmmoc $*
+

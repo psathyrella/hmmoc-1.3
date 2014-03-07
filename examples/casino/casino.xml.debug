@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hml debug="true">
+<alphabet id="dice">
+ 123456
+</alphabet>
+
+<output id="sequence">
+  <alphabet idref="dice" id="id$0" />
+  <identifier type="length" value="iLen" id="id$1" />
+  <identifier type="sequence" value="aSeq" id="id$2" />
+  <code type="parameter" value="char *aSeq" id="id$3" />
+  <code type="parameter" value="int iLen" id="id$4" />
+</output>
+
+<hmm id="Casino">
+ <description id="id$5">  The occasionally dishonest casino  </description>
+ <outputs id="casinooutputs">
+  <output idref="sequence" id="id$6" />
+ </outputs>
+
+ <clique id="block1">
+  <state id="start" />
+ </clique>
+ <clique id="block2">
+  <state id="honest" />
+  <state id="dishonest" />
+ </clique>
+ <clique id="block3">
+  <state id="end" />
+ </clique>
+ <graph id="id$7">
+  <clique idref="block1" id="id$8" />
+  <clique idref="block2" id="id$9" />
+  <clique idref="block3" id="id$10" />
+ </graph>
+
+ <transitions id="id$11">
+  <transition from="start" to="honest" probability="one" emission="emitHonest" id="id$12" />
+  <transition from="honest" to="honest" probability="stayHonest" emission="emitHonest" id="id$13" />
+  <transition from="honest" to="dishonest" probability="goDishonest" emission="emitDishonest" id="id$14" />
+  <transition from="dishonest" to="dishonest" probability="stayDishonest" emission="emitDishonest" id="id$15" />
+  <transition from="dishonest" to="honest" probability="goHonest" emission="emitHonest" id="id$16" />
+  <transition from="honest" to="end" probability="goStop" emission="empty" id="id$17" />
+  <transition from="dishonest" to="end" probability="goStop" emission="empty" id="id$18" />
+ </transitions>
+
+ <code id="paramsClassDef" where="classdefinitions">
+   <![CDATA[
+     struct Params {
+       double iGoHonest;
+       double iGoDishonest;
+       double iGoStop;
+       double aEmitDishonest[6];
+     };
+   ]]>
+  </code>
+
+  <emission id="empty">
+   <probability id="id$19">
+    <code type="expression" id="id$20"> 1.0 </code>
+   </probability>
+  </emission>
+
+  <emission id="emitHonest">
+   <output idref="sequence" id="id$21" />
+   <probability id="id$22">
+    <code type="statement" id="id$23">
+     <identifier output="sequence" value="iEmission" id="id$24" />
+     <identifier type="result" value="iProb" id="id$25" />
+     <![CDATA[
+       iProb = 1/6.0;
+       /* This probability does not depend on the symbol.  HMMoC warns if it does not see the label 'iEmission'
+          somewhere in the code -- its appearance in this comment stops it from warning */
+     ]]>
+    </code>
+   </probability>
+  </emission>
+
+  <emission id="emitDishonest">
+   <output idref="sequence" id="id$26" />
+   <probability id="id$27">
+    <code type="statement" id="id$28">
+     <identifier output="sequence" value="iEmission" id="id$29" />
+     <identifier type="result" value="iProb" id="id$30" />
+     <![CDATA[
+       iProb = iPar.aEmitDishonest[ iEmission - '1' ];
+     ]]>
+    </code>
+   </probability>
+  </emission>
+
+  <probability id="one"><code id="id$31"> 1.0 </code></probability>
+  <probability id="goDishonest">
+    <code id="id$32">
+      <!--  Tell HMMoC that this code requires an input parameter, which itself need a definition to make sense -->
+      <code type="parameter" init="paramsClassDef" value="Params iPar" id="id$33" />
+      <!-- The actual code for this probability follows (no need to quote this) -->
+        iPar.iGoDishonest
+    </code>
+  </probability>
+  <probability id="goHonest"><code id="id$34"> iPar.iGoHonest </code></probability>
+  <probability id="goStop"><code id="id$35"> iPar.iGoStop </code></probability>
+  <probability id="stayHonest"><code id="id$36"> 1.0 - iPar.iGoDishonest - iPar.iGoStop </code></probability>
+  <probability id="stayDishonest"><code id="id$37"> 1.0 - iPar.iGoHonest - iPar.iGoStop </code></probability>
+</hmm>
+
+<hmm id="NoEmissionCasino">
+  <description id="id$38">  The occasionally dishonest casino - no emissions version </description>
+  <outputs id="id$39" />
+
+ <clique id="NEblock1">
+  <state id="NEstart" />
+ </clique>
+ <clique id="NEblock2">
+  <state id="NEhonest" />
+  <state id="NEdishonest" />
+ </clique>
+ <clique id="NEblock3">
+  <state id="NEend" />
+ </clique>
+ <graph id="casinograph">
+  <clique idref="NEblock1" id="id$40" />
+  <clique idref="NEblock2" id="id$41" />
+  <clique idref="NEblock3" id="id$42" />
+ </graph>
+
+ <transitions id="id$43">
+  <transition from="NEstart" to="NEhonest" probability="one" emission="NEempty" id="id$44" />
+  <transition from="NEhonest" to="NEhonest" probability="stayHonest" emission="NEempty" id="id$45" />
+  <transition from="NEhonest" to="NEdishonest" probability="goDishonest" emission="NEempty" id="id$46" />
+  <transition from="NEdishonest" to="NEdishonest" probability="stayDishonest" emission="NEempty" id="id$47" />
+  <transition from="NEdishonest" to="NEhonest" probability="goHonest" emission="NEempty" id="id$48" />
+  <transition from="NEhonest" to="NEend" probability="goStop" emission="NEempty" id="id$49" />
+  <transition from="NEdishonest" to="NEend" probability="goStop" emission="NEempty" id="id$50" />
+ </transitions>
+
+ <emission id="NEempty">
+  <probability id="id$51">
+   <code id="id$52"> 1.0 </code>
+  </probability>
+ </emission>
+</hmm>
+
+<!-- Code generation -->
+<forward outputTable="yes" name="Forward" id="fw">
+  <!-- Specify HMM to make code for -->
+  <hmm idref="Casino" id="id$53" />
+</forward>
+
+<backward outputTable="yes" baumWelch="yes" name="Backward" id="bw">
+  <!-- Specify HMM to make code for -->
+  <hmm idref="Casino" id="id$54" />
+</backward>
+
+<viterbi name="Viterbi" id="vit">
+  <hmm idref="Casino" id="id$55" />
+</viterbi>
+
+<sample name="NESample" id="nesmp">
+  <hmm idref="NoEmissionCasino" id="id$56" />
+</sample>
+
+<backward outputTable="yes" name="NEBackward" id="nebw">
+  <hmm idref="NoEmissionCasino" id="id$57" />
+</backward>
+
+<codeGeneration realtype="bfloat" file="casino.cc" header="casino.h" language="C++" id="id$58">
+  <forward idref="fw" id="id$59" />
+  <backward idref="bw" id="id$60" />
+  <viterbi idref="vit" id="id$61" />
+  <sample idref="nesmp" id="id$62" />
+  <backward idref="nebw" id="id$63" />
+</codeGeneration>
+</hml>
