@@ -345,7 +345,7 @@ int main(int argc, char** argv) {
   pars.iTau = 0.0001;
   pars.iWidth = 0;
 
-  char* file = "sequence.fa";
+  char* file = (char*)"sequence.fa";
 
   if (argc == 1) {
 

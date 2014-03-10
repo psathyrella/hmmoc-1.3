@@ -1,13 +1,15 @@
 #include <stdlib.h>
 #include "casino.h"
 #include <iomanip>
+#include <cassert>
 
 
 int main(void) {
   Params iPar; // The parameters of the model
 
-  iPar.iGoDishonest = 0.05;     // probability of going from Honest to the Dishonest state
   iPar.iGoHonest = 0.02;        // probability of going from Dishonest to the Honest state
+  iPar.iGoDishonest = 0.05;     // probability of going from Honest to the Dishonest state
+  iPar.iGoStupid = 0.03;
   iPar.iGoStop = 0.00001;       // probability of going from either to the End state
   iPar.aEmitDishonest[0] = 0.1; 
   iPar.aEmitDishonest[1] = 0.1;
@@ -15,6 +17,12 @@ int main(void) {
   iPar.aEmitDishonest[3] = 0.1;
   iPar.aEmitDishonest[4] = 0.1;
   iPar.aEmitDishonest[5] = 0.5; // Probability of throwing a 6 is heavily favoured in the Dishonest state
+  iPar.aEmitStupid[0] = 0.5; 
+  iPar.aEmitStupid[1] = 0.1;
+  iPar.aEmitStupid[2] = 0.1;
+  iPar.aEmitStupid[3] = 0.1;
+  iPar.aEmitStupid[4] = 0.1;
+  iPar.aEmitStupid[5] = 0.1;
 
   //
   // Sample a path.  This uses the HMM that does not emit symbols, because we want to sample from the HMM
@@ -34,7 +42,7 @@ int main(void) {
   // Next, build an input emission sequence by sampling the emitted symbols according to true path
   //
   char* aSequence = new char[ iPathLength ];
-  int iNEHonest = pDPNE->getId("NEhonest");         // Get identifier of the honest state
+  // int iNEHonest = pDPNE->getId("NEhonest");         // Get identifier of the honest state
   for (int i=0; i<iPathLength; i++) {
     double iP = random() / (double)RAND_MAX;
     int iSymbol = -1;
@@ -42,11 +50,14 @@ int main(void) {
       // Calculate probability of current symbol, depending on current state
       double iCurrentP;
       iSymbol += 1;
-      if (pTruePath->toState(i) == iNEHonest) {
+      // if (pTruePath->toState(i) == iNEHonest) {
+      if(pDPNE->getStateId(pTruePath->toState(i)) == "NEhonest") {
 	iCurrentP = 1/6.0;
-      } else {
+      } else if(pDPNE->getStateId(pTruePath->toState(i)) == "NEdishonest") {
 	iCurrentP = iPar.aEmitDishonest[iSymbol];
-      }
+      } else if(pDPNE->getStateId(pTruePath->toState(i)) == "NEstupid") {
+	iCurrentP = iPar.aEmitStupid[iSymbol];
+      } else assert(0);
       iP -= iCurrentP;
     } while (iP > 0.0);
 
@@ -81,42 +92,50 @@ int main(void) {
                      //    is not predictable (make clean; make gives different values), this gives the number which were
                      //    *in*correct maybe 1/4 of the time
     }
-    if(pViterbiDP->getStateId(iViterbiPath.toState(i)) == "honest" && pDPNE->getStateId(pTruePath->toState(i)) == "NEhonest")
-      iNewCorrect += 1;
-    if(pViterbiDP->getStateId(iViterbiPath.toState(i)) == "dishonest" && pDPNE->getStateId(pTruePath->toState(i)) == "NEdishonest")
+    string inferredState = pViterbiDP->getStateId(iViterbiPath.toState(i));
+    string realState = pDPNE->getStateId(pTruePath->toState(i));
+    assert(realState.find("NE") != string::npos);
+    realState.erase(0,2);
+    if(inferredState == realState)
       iNewCorrect += 1;
   }
   cout << "Viterbi decoding got " << iCorrect << " out of " << iViterbiPath.size() << " states correct." << endl;
-  cout << "or: " << setw(12) << iNewCorrect << endl;
+  cout << "or: " << setw(12) << iNewCorrect << " / " << iViterbiPath.size() << " = " << (double(iNewCorrect) / iViterbiPath.size()) << endl;
 
   cout << "Baum Welch emission counts:"<<endl;
 
-  cout << "\tHonest\tDishonest" << endl;
+  cout << setw(12) << " " << setw(12) << "Honest" << setw(12) << "Dishonest" << setw(12) << "Stupid" << endl;
   for (int i=0; i<6; i++) {
-    cout << i << ":\t"  
-	 << bw.emissionBaumWelchCount1[i][ bw.emissionIndex("emitHonest") ] << "\t" 
-	 << bw.emissionBaumWelchCount1[i][ bw.emissionIndex("emitDishonest") ] << endl;
+    cout << setw(12) << i
+	 << setw(12) << bw.emissionBaumWelchCount1[i][ bw.emissionIndex("emitHonest") ]
+	 << setw(12) << bw.emissionBaumWelchCount1[i][ bw.emissionIndex("emitDishonest") ]
+	 << setw(12) << bw.emissionBaumWelchCount1[i][ bw.emissionIndex("emitStupid") ]
+	 << endl;
   }
 
   // Compare the true and Viterbi paths, and print the posterior probability of being in the honest state
-  int iVHonest = pViterbiDP->getId("honest");
+  // int iVHonest = pViterbiDP->getId("honest");
 
-  for (int i=0; i<min(iPathLength,30); i++) {
+  for (int i=0; i<min(iPathLength,300); i++) {
 
     cout << aSequence[i] << " True:";
-    if (pTruePath->toState(i) == iNEHonest) {
+    if(pDPNE->getStateId(pTruePath->toState(i)) == "NEhonest") {
       cout << "H";
-    } else {
+    } else if(pDPNE->getStateId(pTruePath->toState(i)) == "NEdishonest") {
       cout << "D";
-    }
+    } else if(pDPNE->getStateId(pTruePath->toState(i)) == "NEstupid") {
+      cout << "S";
+    } else assert(0);
     cout << " Viterbi:";
-    if (iViterbiPath.toState(i) == iVHonest) {
+    if(pViterbiDP->getStateId(iViterbiPath.toState(i)) == "honest") {
       cout << "H";
-    } else {
+    } else if(pViterbiDP->getStateId(iViterbiPath.toState(i)) == "dishonest") {
       cout << "D";
-    }
+    } else if(pViterbiDP->getStateId(iViterbiPath.toState(i)) == "stupid") {
+      cout << "S";
+    } else assert(0);
+
     double iPosterior = pFWDP->getProb("honest",i+1)*pBWDP->getProb("honest",i+1)/iFWProb;
     cout << " " << iPosterior << endl;
-
   }
 }
