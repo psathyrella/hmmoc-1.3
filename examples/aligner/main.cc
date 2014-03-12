@@ -101,6 +101,23 @@ void estimate( int iterations, Pars& params, vector<char>& iSeq1, vector<char>& 
     double trBS = baumWelch.transitionBaumWelchCount00[ baumWelch.transitionIndex("trBS") ];
 
     // calculate the new parameters
+    cout
+      << setw(22) << "BX"
+      << setw(22) << "BS"
+      << setw(22) << "XX"
+      << setw(22) << "XS"
+      << setw(22) << "SY"
+      << setw(22) << "SE"
+      << setw(22) << "YY"
+      << setw(22) << "YE" << endl
+      << setw(22) << baumWelch.transitionBaumWelchCount00[ baumWelch.transitionIndex("trBX") ]
+      << setw(22) << baumWelch.transitionBaumWelchCount00[ baumWelch.transitionIndex("trBS") ]
+      << setw(22) << baumWelch.transitionBaumWelchCount00[ baumWelch.transitionIndex("trXX") ]
+      << setw(22) << baumWelch.transitionBaumWelchCount00[ baumWelch.transitionIndex("trXS") ]
+      << setw(22) << baumWelch.transitionBaumWelchCount00[ baumWelch.transitionIndex("trSY") ]
+      << setw(22) << baumWelch.transitionBaumWelchCount00[ baumWelch.transitionIndex("trSE") ]
+      << setw(22) << baumWelch.transitionBaumWelchCount00[ baumWelch.transitionIndex("trYY") ]
+      << setw(22) << baumWelch.transitionBaumWelchCount00[ baumWelch.transitionIndex("trYE") ] << endl;
     params.iEta = trBS;
   }
 }
@@ -198,11 +215,7 @@ void report( Path& path, typename T::DPTable* pFW, typename T::DPTable* pBW, vec
 template<class T>
 void execute( int iterations, Pars pars, vector<char>& iSeq1, vector<char>& iSeq2 ) {
     // estimate iDelta and iR using Baum-Welch training
-    estimate<T>( iterations, pars, iSeq1, iSeq2 );
-    cout << "estimated params: "
-	 << setw(12) << pars.iSigma
-	 << setw(12) << pars.iEta
-	 << endl;
+    // estimate<T>( iterations, pars, iSeq1, iSeq2 );
 
     // calculate the Viterbi path
     Path& path = viterbi<T>(pars, iSeq1, iSeq2 );
@@ -226,7 +239,7 @@ int main(int argc, char** argv) {
   // set initial parameters
   Pars pars;
   pars.iSigma = 0.4;
-  pars.iEta = 0.001;
+  pars.iEta = 0.1;
 
   char* file = (char*)"sequence.fa";
   if (argc == 1) {

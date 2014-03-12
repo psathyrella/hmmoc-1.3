@@ -137,23 +137,17 @@
   <state id="begin" emission="empty"/>
  </clique>
  <clique id="block2">
-  <state id="emitx"/>
+  <state id="EX"/>
+  <state id="silent"/>
+  <state id="EY"/>
  </clique>
  <clique id="block3">
-  <state id="silent"/>
- </clique>
- <clique id="block4">
-  <state id="emity"/>
- </clique>
- <clique id="block5">
   <state id="end"/>
  </clique>
  <graph>
   <clique idref="block1"/>
   <clique idref="block2"/>
   <clique idref="block3"/>
-  <clique idref="block4"/>
-  <clique idref="block5"/>
  </graph>
 
   <emission id="emit1">
@@ -173,13 +167,13 @@
         all transitions going to that state should have no "emission" attribute.   
    -->
   <transitions id="transitions">
-  <transition id="trBX" from="begin"  to="emitx"  probability="probBX" emission="emit1"/>
+  <transition id="trBX" from="begin"  to="EX"     probability="probBX" emission="emit1"/>
   <transition id="trBS" from="begin"  to="silent" probability="probBS" emission="empty"/>
-  <transition id="trXX" from="emitx"  to="emitx"  probability="probXX" emission="emit1"/>
-  <transition id="trXS" from="emitx"  to="silent" probability="probXS" emission="empty"/>
-  <transition id="trSY" from="silent" to="emity"  probability="probSY" emission="emit2"/>
-  <transition id="trYY" from="emity"  to="emity"  probability="probYY" emission="emit2"/>
-  <transition id="trYE" from="emity"  to="end"    probability="probYE" emission="empty"/>
+  <transition id="trXX" from="EX"     to="EX"     probability="probXX" emission="emit1"/>
+  <transition id="trXS" from="EX"     to="silent" probability="probXS" emission="empty"/>
+  <transition id="trSY" from="silent" to="EY"     probability="probSY" emission="emit2"/>
+  <transition id="trYY" from="EY"     to="EY"     probability="probYY" emission="emit2"/>
+  <transition id="trYE" from="EY"     to="end"    probability="probYE" emission="empty"/>
   </transitions>
 </hmm>
 
