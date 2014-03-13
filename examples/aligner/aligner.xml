@@ -7,43 +7,22 @@
 </alphabet>
 
 <!--  Definition of the output "tapes"  -->
-<output id="sequence1">
+<output id="sequence">
  <alphabet idref="nucleotides"/>
- <identifier type="length" value="iLen1"/>
- <identifier type="sequence" value="iSequence1"/>
- <!-- These identifiers need to be passed to the function, so specify them here as parameters.
-      Because of the & character, we need a CDATA block to quote the text.  -->
+ <identifier type="length" value="iLen"/>
+ <identifier type="sequence" value="iSequence"/>
  <code type="parameter">
   <![CDATA[
-     vector<char>& iSequence1
-  ]]>
- </code>
-</output>
-<output id="sequence2">
- <alphabet idref="nucleotides"/>
- <identifier type="length" value="iLen2"/>
- <identifier type="sequence" value="iSequence2"/>
- <code type="parameter">
-  <![CDATA[
-     vector<char>& iSequence2
+     vector<char>& iSequence
   ]]>
  </code>
 </output>
 
 <code id="initialise1" type="statement">
-  <!-- This initialisation block requires some input parameters: -->
-  <code type="parameter" value="double iSigma"/>
-  <!-- Actual initialisation block -->
   <![CDATA[
 
-  int iLen1 = iSequence1.size();   // The sequence lengths are not passed as parameters, but are
-  int iLen2 = iSequence2.size();   // computed from the vector<char> itself
+  int iLen = iSequence.size();
 
-/* Initialisation of the arrays iEquilibriumDistribution and iMatrix,
-   according to a Jukes-Cantor model */
-
-  double iEquilibriumDistribution[4];
-  double iSubstitutionMatrix[4][4];
   unsigned char iTranslate[256];
   for (int i=0; i<256; i++) {
     iTranslate[i]= 0;
@@ -57,149 +36,96 @@
   iTranslate[(unsigned)'T'] = 3;
   iTranslate[(unsigned)'t'] = 3;
 
-  for (int i=0; i<4; i++) {
-    iEquilibriumDistribution[i] = 1/4.0;
-    for (int j=0; j<4; j++) {
-      if (i==j) {
-        iSubstitutionMatrix[i][j] = 1/4.0 + (3/4.0)*exp(-4.0*iSigma/3.0);
-      } else {
-        iSubstitutionMatrix[i][j] = 1/4.0 - (1/4.0)*exp(-4.0*iSigma/3.0);
-      }
-    }
-  }
+  double emitProbs1[4];
+  emitProbs1[0] = 0.1;
+  emitProbs1[1] = 0.1;
+  emitProbs1[2] = 0.4;
+  emitProbs1[3] = 0.4;
+  double emitProbs2[4];
+  emitProbs2[0] = 0.1;
+  emitProbs2[1] = 0.4;
+  emitProbs2[2] = 0.1;
+  emitProbs2[3] = 0.4;
 
   ]]>
 </code>
 
-<code id="initialise2" type="statement">
-  <code type="parameter"> double iEta </code>
-  <![CDATA[
-
-/* Initialisation of the iT transition-probability array. States: begin, x, silent, y, end */
-  double iT[8];
-  iT[0] = 1 - iEta;     // BX
-  iT[1] = iEta;         // BS
-  iT[2] = 1 - iEta;     // XX
-  iT[3] = iEta;         // XS
-  iT[4] = 1 - iEta;     // SY
-  iT[5] = iEta;         // SE
-  iT[6] = 1 - iEta;     // YY
-  iT[7] = iEta;         // YE
-
-  ]]>
-</code>
-
-<!--  
-      Emission probabilities.  
-      A number of input <identifier>s specify to which tapes this emission emits.
-      An optional "output" attribute specifies the tape; when absent, the ordering of tapes in
-       the defining HMM is used.
-      An optional "depth" attribute specifies the lookback.  This is used for higher-order
-       states.  Default is 0.  If it is used, use of the "output" attribute is required.
-      Emission probabilities need not sum out to 1, e.g. when using transducers
-       (conditionally normalized HMMs)
--->
-<probability id="singleEmissionProb1">
+<!-- <probability id="one"><code> 1.0 </code></probability> -->
+<probability id="emissionProb1">
   <code type="statement" init="initialise1">
-    <identifier output="sequence1" value="iSymb"/>
+    <identifier output="sequence" value="iSymb"/>
     <identifier type="result" value="iPP"/>
     <![CDATA[
-      iPP = iEquilibriumDistribution[ iTranslate[ iSymb ] ];
+      iPP = emitProbs1[ iTranslate[ iSymb ] ];
     ]]>
   </code>
 </probability>
-<probability id="singleEmissionProb2">
+<probability id="emissionProb2">
   <code type="statement" init="initialise1">
-    <identifier output="sequence2" value="iSymb"/>
+    <identifier output="sequence" value="iSymb"/>
     <identifier type="result" value="iPP"/>
     <![CDATA[
-      iPP = iEquilibriumDistribution[ iTranslate[ iSymb ] ];
+      iPP = emitProbs2[ iTranslate[ iSymb ] ];
     ]]>
   </code>
 </probability>
 
-<probability id="probBX"><code type="expression" init="initialise2"> iT[0] </code></probability>
-<probability id="probBS"><code type="expression" init="initialise2"> iT[1] </code></probability>
-<probability id="probXX"><code type="expression" init="initialise2"> iT[2] </code></probability>
-<probability id="probXS"><code type="expression" init="initialise2"> iT[3] </code></probability>
-<probability id="probSY"><code type="expression" init="initialise2"> iT[4] </code></probability>
-<probability id="probSE"><code type="expression" init="initialise2"> iT[5] </code></probability>
-<probability id="probYY"><code type="expression" init="initialise2"> iT[6] </code></probability>
-<probability id="probYE"><code type="expression" init="initialise2"> iT[7] </code></probability>
+<probability id="probBG1"><code  type="expression"> 0.5 </code></probability>
+<probability id="probBG2"><code  type="expression"> 0.5 </code></probability>
+<probability id="probG1G1"><code type="expression"> 0.99/2 </code></probability>
+<probability id="probG1G2"><code type="expression"> 0.99/2 </code></probability>
+<probability id="probG2G2"><code type="expression"> 0.99/2 </code></probability>
+<probability id="probG2G1"><code type="expression"> 0.99/2 </code></probability>
+<probability id="probG1S"><code  type="expression"> 0.01 </code></probability>
+<probability id="probG2S"><code  type="expression"> 0.01 </code></probability>
 
-<hmm id="Align">
- <description> random pairwise sequence aligner </description>
+<hmm id="SeqGen">
+ <description> random sequence generator </description>
  <outputs id="outputs">
-  <output idref="sequence1"/>
-  <output idref="sequence2"/>
+  <output idref="sequence"/>
  </outputs>
  <clique id="block1">
-  <state id="begin" emission="empty"/>
- </clique>
- <clique id="block2">
-  <state id="EX"/>
-  <state id="silent"/>
-  <state id="EY"/>
- </clique>
- <clique id="block3">
-  <state id="end"/>
+  <state id="begin"/>
+  <state id="generate1"/>
+  <state id="generate2"/>
+  <state id="stop"/>
  </clique>
  <graph>
   <clique idref="block1"/>
-  <clique idref="block2"/>
-  <clique idref="block3"/>
  </graph>
 
   <emission id="emit1">
-   <output idref="sequence1"/>
-   <probability idref="singleEmissionProb1"/>
+   <output idref="sequence"/>
+   <probability idref="emissionProb1"/>
   </emission>
   <emission id="emit2">
-   <output idref="sequence2"/>
-   <probability idref="singleEmissionProb2"/>
+   <output idref="sequence"/>
+   <probability idref="emissionProb2"/>
   </emission>
   <emission id="empty">
-   <probability><code type="expression"> 1.0 </code></probability>
+   <probability>
+    <code type="expression"> 1.0 </code>
+   </probability>
   </emission>
 
-  <!--  Define all transitions: "from" and "to" states, transition probability, and emission  
-        It is permissible to assign emissions to states (see the end state).  In this case,
-        all transitions going to that state should have no "emission" attribute.   
-   -->
   <transitions id="transitions">
-  <transition id="trBX" from="begin"  to="EX"     probability="probBX" emission="emit1"/>
-  <transition id="trBS" from="begin"  to="silent" probability="probBS" emission="empty"/>
-  <transition id="trXX" from="EX"     to="EX"     probability="probXX" emission="emit1"/>
-  <transition id="trXS" from="EX"     to="silent" probability="probXS" emission="empty"/>
-  <transition id="trSY" from="silent" to="EY"     probability="probSY" emission="emit2"/>
-  <transition id="trYY" from="EY"     to="EY"     probability="probYY" emission="emit2"/>
-  <transition id="trYE" from="EY"     to="end"    probability="probYE" emission="empty"/>
+  <transition id="trBG1"  from="begin"     to="generate1" probability="probBG1"  emission="emit1"/>
+  <transition id="trBG2"  from="begin"     to="generate2" probability="probBG2"  emission="emit2"/>
+  <transition id="trG1G1" from="generate1" to="generate1" probability="probG1G1" emission="emit1"/>
+  <transition id="trG1G2" from="generate1" to="generate2" probability="probG1G2" emission="emit2"/>
+  <transition id="trG2G2" from="generate2" to="generate2" probability="probG2G2" emission="emit2"/>
+  <transition id="trG2G1" from="generate2" to="generate1" probability="probG2G1" emission="emit1"/>
+  <transition id="trG1S"  from="generate1" to="stop"      probability="probG1S"   emission="empty"/>
+  <transition id="trG2S"  from="generate2" to="stop"      probability="probG2S"   emission="empty"/>
   </transitions>
 </hmm>
 
 <!-- Code generation -->
-<forward outputTable="yes" baumWelch="no" name="Forward" id="fw">
-  <hmm idref="Align"/>
-</forward>
-<backward outputTable="no" baumWelch="transitions" name="BackwardBaumWelch" id="bwbw">
-  <hmm idref="Align"/>
-</backward>
-<backward outputTable="yes" baumWelch="no" name="Backward" id="bw">
-  <!-- Specify HMM to make code for -->
-  <hmm idref="Align"/>
-</backward>
-<sample name="Sample" id="smp">
-  <hmm idref="Align"/>
-</sample>
-<viterbi name="Viterbi" id="vit">
-  <hmm idref="Align"/>
+<viterbi name="Viterbi" id="vit" outputTable="yes">
+  <hmm idref="SeqGen"/>
 </viterbi>
 
 <codeGeneration realtype="bfloat" file="aligner.cc" header="aligner.h" language="C++">
-  <forward idref="fw"/>
-  <backward idref="bwbw"/>
-  <backward idref="bw"/>
-  <sample idref="smp"/>
   <viterbi idref="vit"/>
 </codeGeneration>
 
