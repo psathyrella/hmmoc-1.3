@@ -7,15 +7,21 @@
 #include <cassert>
 
 //----------------------------------------------------------------------------------------
+class Pars {
+public:
+  double tau; // length parameter
+};
+
+//----------------------------------------------------------------------------------------
 // Accessor classes
 class SeqGenAccess {
 public:
   typedef SeqGenDPTable    DPTable;
-  static bfloat Viterbi_recurse(DPTable** ppOutTable,vector<char>& iSequence) {
-    return ::Viterbi_recurse(ppOutTable,iSequence);
+  static bfloat Viterbi_recurse(DPTable** ppOutTable, Pars pars, vector<char>& iSequence) {
+    return ::Viterbi_recurse(ppOutTable, pars.tau, iSequence);
   }
-  static Path& Viterbi_trace(DPTable* pInTable,vector<char>& iSequence) {
-    return ::Viterbi_trace(pInTable,iSequence);
+  static Path& Viterbi_trace(DPTable* pInTable, Pars pars, vector<char>& iSequence) {
+    return ::Viterbi_trace(pInTable, pars.tau, iSequence);
   }
 };
 
@@ -55,12 +61,12 @@ void readFile(istream& is, vector<pair<string,vector<char> > > &seqs) {
 //----------------------------------------------------------------------------------------
 // Compute a Viterbi alignment
 template<class T>
-Path& viterbi(vector<char> iSeq, map<unsigned,string> &stateIDs) {
+Path& viterbi(Pars &pars, vector<char> iSeq, map<unsigned,string> &stateIDs) {
   typename T::DPTable* pViterbiTable;
   cout << "Viterbi recursion..." << endl;
-  T::Viterbi_recurse(&pViterbiTable, iSeq);
+  T::Viterbi_recurse(&pViterbiTable, pars, iSeq);
   cout << "Viterbi traceback..." << endl;
-  Path& path = T::Viterbi_trace(pViterbiTable, iSeq);
+  Path& path = T::Viterbi_trace(pViterbiTable, pars, iSeq);
   stateIDs[0] = pViterbiTable->getStateId(0);
   stateIDs[1] = pViterbiTable->getStateId(1);
   stateIDs[2] = pViterbiTable->getStateId(2);
@@ -89,13 +95,15 @@ void report( Path& path, vector<char>& iSeq, map<unsigned,string> stateIDs) {
 }
 
 template<class T>
-void execute(vector<char>& iSeq) {
+void execute(Pars pars, vector<char>& iSeq) {
   map<unsigned,string> stateIDs;
-  Path& path = viterbi<T>(iSeq, stateIDs);
+  Path& path = viterbi<T>(pars, iSeq, stateIDs);
   report<T>(path, iSeq, stateIDs);
 }
 
 int main(int argc, char** argv) {
+  Pars pars;
+  pars.tau = 0.01;
 
   char* file = (char*)"sequence.fa";
   if (argc == 1) {
@@ -113,7 +121,7 @@ int main(int argc, char** argv) {
   readFile(ifsIn, seqs);
   for(unsigned i1=0; i1<seqs.size(); i1++) {
     vector<char>& iSeq = seqs[i1].second;
-    execute<SeqGenAccess>(iSeq);
+    execute<SeqGenAccess>(pars, iSeq);
     return 1;
   }
 }

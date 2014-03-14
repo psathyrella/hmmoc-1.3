@@ -50,6 +50,25 @@
   ]]>
 </code>
 
+<code id="initialise2" type="statement">
+  <code type="parameter"> double tau </code> <!-- length parameter -->
+  <![CDATA[
+
+/* Initialisation of the iT transition-probability array */
+
+  double iT[8];
+  iT[0] = 0.5;          // BG1
+  iT[1] = 0.5;          // BG2
+  iT[2] = (1 - tau)/2;  // G1G1
+  iT[3] = (1 - tau)/2;  // G1G2
+  iT[4] = (1 - tau)/2;  // G2G2
+  iT[5] = (1 - tau)/2;  // G2G1
+  iT[6] = tau;          // G1S 
+  iT[7] = tau;          // G2S 
+
+  ]]>
+</code>
+
 <!-- <probability id="one"><code> 1.0 </code></probability> -->
 <probability id="emissionProb1">
   <code type="statement" init="initialise1">
@@ -70,14 +89,14 @@
   </code>
 </probability>
 
-<probability id="probBG1"><code  type="expression"> 0.5 </code></probability>
-<probability id="probBG2"><code  type="expression"> 0.5 </code></probability>
-<probability id="probG1G1"><code type="expression"> 0.99/2 </code></probability>
-<probability id="probG1G2"><code type="expression"> 0.99/2 </code></probability>
-<probability id="probG2G2"><code type="expression"> 0.99/2 </code></probability>
-<probability id="probG2G1"><code type="expression"> 0.99/2 </code></probability>
-<probability id="probG1S"><code  type="expression"> 0.01 </code></probability>
-<probability id="probG2S"><code  type="expression"> 0.01 </code></probability>
+<probability id="probBG1"><code  type="expression" init="initialise2"> iT[0] </code></probability>
+<probability id="probBG2"><code  type="expression" init="initialise2"> iT[1] </code></probability>
+<probability id="probG1G1"><code type="expression" init="initialise2"> iT[2] </code></probability>
+<probability id="probG1G2"><code type="expression" init="initialise2"> iT[3] </code></probability>
+<probability id="probG2G2"><code type="expression" init="initialise2"> iT[4] </code></probability>
+<probability id="probG2G1"><code type="expression" init="initialise2"> iT[5] </code></probability>
+<probability id="probG1S"><code  type="expression" init="initialise2"> iT[6] </code></probability>
+<probability id="probG2S"><code  type="expression" init="initialise2"> iT[7] </code></probability>
 
 <hmm id="SeqGen">
  <description> random sequence generator </description>
