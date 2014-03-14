@@ -145,7 +145,50 @@
   </transitions>
 </hmm>
 
+<hmm id="NESeqGen">
+ <description> random sequence generator without emissions (for sampling) </description>
+ <outputs/>
+ <clique id="NEblock1">
+  <state id="NEbegin"/>
+ </clique>
+ <clique id="NEblock2">
+  <state id="NEgenerate1"/>
+  <state id="NEgenerate2"/>
+ </clique>
+ <clique id="NEblock3">
+  <state id="NEstop"/>
+ </clique>
+ <graph>
+  <clique idref="NEblock1"/>
+  <clique idref="NEblock2"/>
+  <clique idref="NEblock3"/>
+ </graph>
+
+  <emission id="NEempty">
+   <probability>
+    <code type="expression"> 1.0 </code>
+   </probability>
+  </emission>
+
+  <transitions id="NEtransitions">
+  <transition from="NEbegin"     to="NEgenerate1" probability="probBG1"  emission="NEempty"/>
+  <transition from="NEbegin"     to="NEgenerate2" probability="probBG2"  emission="NEempty"/>
+  <transition from="NEgenerate1" to="NEgenerate1" probability="probG1G1" emission="NEempty"/>
+  <transition from="NEgenerate1" to="NEgenerate2" probability="probG1G2" emission="NEempty"/>
+  <transition from="NEgenerate2" to="NEgenerate2" probability="probG2G2" emission="NEempty"/>
+  <transition from="NEgenerate2" to="NEgenerate1" probability="probG2G1" emission="NEempty"/>
+  <transition from="NEgenerate1" to="NEstop"      probability="probG1S"  emission="NEempty"/>
+  <transition from="NEgenerate2" to="NEstop"      probability="probG2S"  emission="NEempty"/>
+  </transitions>
+</hmm>
+
 <!-- Code generation -->
+<backward  outputTable="yes" name="NEBackward" id="nebw">
+  <hmm idref="NESeqGen"/>
+</backward>
+<sample  name="NESample" id="nesmp">
+  <hmm idref="NESeqGen"/>
+</sample>
 <forward outputTable="yes" baumWelch="no" name="Forward" id="fw">
   <hmm idref="SeqGen"/>
 </forward>
@@ -157,6 +200,8 @@
 </viterbi>
 
 <codeGeneration realtype="bfloat" file="aligner.cc" header="aligner.h" language="C++">
+  <backward idref="nebw"/>
+  <sample idref="nesmp"/>
   <forward idref="fw"/>
   <backward idref="bw"/>
   <viterbi idref="vit"/>

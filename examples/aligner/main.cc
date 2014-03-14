@@ -64,7 +64,19 @@ void readFile(istream& is, vector<pair<string,vector<char> > > &seqs) {
     seqs.push_back(newSequence);
   }
 }
-    
+//----------------------------------------------------------------------------------------
+// sample from emissionless hmm
+Path *sample(Pars pars, NESeqGenDPTable *NEDPTable) {
+  int iPathLength(0);
+  Path *pTruePath;
+  do {
+    NEBackward(&NEDPTable, pars.tau);                     // Initialize the DP table using the Backward algorithm
+    pTruePath = &NESample(NEDPTable, pars.tau);            // Sample
+    iPathLength = pTruePath->size()-1;
+  } while (iPathLength < 1/pars.tau);         // We don't want short sequences
+  cout << "Sampled " << iPathLength << " throws" << endl;
+  return pTruePath;
+}
 //----------------------------------------------------------------------------------------
 // use Baum-Welch training to estimate parameters
 template<class T>
@@ -136,6 +148,7 @@ void report( Path& path, vector<char>& iSeq, map<unsigned,string> stateIDs) {
 //----------------------------------------------------------------------------------------
 template<class T>
 void execute(Pars pars, vector<char>& iSeq) {
+  cout << "ex" << endl;
   int iterations(9);
   estimate<T>(iterations, pars, iSeq);
   map<unsigned,string> stateIDs;
@@ -144,26 +157,68 @@ void execute(Pars pars, vector<char>& iSeq) {
 }
 //----------------------------------------------------------------------------------------
 int main(int argc, char** argv) {
+  srand(getpid());
   Pars pars;
-  pars.tau = 0.0001;
+  pars.tau = 0.1;
+  //----------------------------------------------------------------------------------------
+  // hrrrrrg why doesn't hmmoc put these in the *header*?
+  double emitProbs1[4];
+  emitProbs1[0] = 0.1;
+  emitProbs1[1] = 0.1;
+  emitProbs1[2] = 0.4;
+  emitProbs1[3] = 0.4;
+  double emitProbs2[4];
+  emitProbs2[0] = 0.1;
+  emitProbs2[1] = 0.4;
+  emitProbs2[2] = 0.1;
+  emitProbs2[3] = 0.4;
 
-  char* file = (char*)"sequence.fa";
-  if (argc == 1) {
-    cout << "Using default: file=sequence.fa:\n" << endl;
-  } else {
-    file = argv[1];
-  }
-  if (argc > 2) {
-    cout << "Too many parameters" << endl;
-    exit(1);
-  }
 
-  std::ifstream ifsIn( file );
-  vector<pair<string,vector<char> > > seqs;
-  readFile(ifsIn, seqs);
-  for(unsigned i1=0; i1<seqs.size(); i1++) {
-    vector<char>& iSeq = seqs[i1].second;
-    execute<SeqGenAccess>(pars, iSeq);
-    return 1;
+  NESeqGenDPTable *NEDPTable(0);
+  Path *truePath = sample(pars, NEDPTable);
+  map<unsigned,string> NEstateIDs;
+  NEstateIDs[0] = NEDPTable->getStateId(0);
+  NEstateIDs[1] = NEDPTable->getStateId(1);
+  NEstateIDs[2] = NEDPTable->getStateId(2);
+  NEstateIDs[3] = NEDPTable->getStateId(3);
+  const char *nukes = "ACGT"; // surely this is defined somewhere else? can't find it
+  vector<char> sampleSeq;
+  for(unsigned is=0; is<truePath->size(); is++) {
+    assert(NEstateIDs.find(truePath->toState(is)) != NEstateIDs.end());
+    string stateStr = NEstateIDs[truePath->toState(is)];
+    double *emitProbs(0);
+    if(stateStr=="NEgenerate1")      emitProbs = emitProbs1;
+    else if(stateStr=="NEgenerate2") emitProbs = emitProbs2;
+    else if(stateStr=="NEbegin" || stateStr=="NEstop") {
+      break;
+    } else {
+      cout << "ACK: " << stateStr << endl;
+    }
+      
+    double prob = random() / (double)RAND_MAX;
+    unsigned ip(0);
+    while(true) {
+      // cout
+      // 	<< setw(12) << prob;
+      if(prob<emitProbs[ip]) {
+	// cout
+	//   << " --> "
+	//   << setw(12) << nukes[ip];
+	sampleSeq.push_back(nukes[ip]);
+	break;
+      }
+      // cout << "(-=" << emitProbs[ip] << ")";
+      prob -= emitProbs[ip];
+      ip++;
+      assert(prob>0);
+    }
+    // cout << endl;
   }
+  execute<SeqGenAccess>(pars, sampleSeq);
+  string stateStr("");
+  for(unsigned is=0; is<truePath->size(); is++) {
+    assert(NEstateIDs.find(truePath->toState(is)) != NEstateIDs.end());
+    stateStr += *(NEstateIDs[truePath->toState(is)].end()-1);
+  }
+  cout << "state " << stateStr << endl;
 }
