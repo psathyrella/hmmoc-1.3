@@ -105,12 +105,18 @@
  </outputs>
  <clique id="block1">
   <state id="begin"/>
+ </clique>
+ <clique id="block2">
   <state id="generate1"/>
   <state id="generate2"/>
+ </clique>
+ <clique id="block3">
   <state id="stop"/>
  </clique>
  <graph>
   <clique idref="block1"/>
+  <clique idref="block2"/>
+  <clique idref="block3"/>
  </graph>
 
   <emission id="emit1">
@@ -140,11 +146,19 @@
 </hmm>
 
 <!-- Code generation -->
+<forward outputTable="yes" baumWelch="no" name="Forward" id="fw">
+  <hmm idref="SeqGen"/>
+</forward>
+<backward outputTable="no" baumWelch="transitions" name="Backward" id="bw">
+  <hmm idref="SeqGen"/>
+</backward>
 <viterbi name="Viterbi" id="vit" outputTable="yes">
   <hmm idref="SeqGen"/>
 </viterbi>
 
 <codeGeneration realtype="bfloat" file="aligner.cc" header="aligner.h" language="C++">
+  <forward idref="fw"/>
+  <backward idref="bw"/>
   <viterbi idref="vit"/>
 </codeGeneration>
 

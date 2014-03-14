@@ -17,6 +17,13 @@ public:
 class SeqGenAccess {
 public:
   typedef SeqGenDPTable    DPTable;
+  typedef SeqGenBaumWelch  BaumWelchCounters;
+  static bfloat Forward(DPTable** ppOutTable, Pars pars, vector<char>& iSequence) {
+    return ::Forward(ppOutTable, pars.tau, iSequence);
+  }
+  static bfloat Backward(BaumWelchCounters& bw, DPTable* pInTable, Pars pars, vector<char>& iSequence) {
+    return ::Backward(bw, pInTable, pars.tau, iSequence);
+  }
   static bfloat Viterbi_recurse(DPTable** ppOutTable, Pars pars, vector<char>& iSequence) {
     return ::Viterbi_recurse(ppOutTable, pars.tau, iSequence);
   }
@@ -59,6 +66,39 @@ void readFile(istream& is, vector<pair<string,vector<char> > > &seqs) {
 }
     
 //----------------------------------------------------------------------------------------
+// use Baum-Welch training to estimate parameters
+template<class T>
+void estimate(int iterations, Pars& pars, vector<char>& iSeq) {
+  typename T::DPTable* pFW;
+  typename T::BaumWelchCounters baumWelch;
+  for (int iter=1; iter <= iterations; ++iter) {
+    // calculate the forward DP table
+    cout << "Forward..." << endl;
+    bfloat fw = T::Forward(&pFW, pars, iSeq);
+
+    // calculate the Baum-Welch estimated transition counts
+    baumWelch.resetCounts();
+    cout << "Baum-Welch + backward..." << endl;
+    bfloat bw = T::Backward(baumWelch, pFW, pars, iSeq);
+
+    cout << "Iteration " << iter << ": likelihood = " << fw << endl;
+    cout << "estimated pars: "
+	 << setw(12) << pars.tau
+	 << endl;
+
+    // remove the forward table
+    delete pFW;
+
+    // get the expected transition counts
+    double trG1S = baumWelch.transitionBaumWelchCount0[ baumWelch.transitionIndex("trG1S") ];
+    double trG2S = baumWelch.transitionBaumWelchCount0[ baumWelch.transitionIndex("trG2S") ];
+
+    // calculate the new parameters
+    pars.tau = (trG1S + trG2S) / 2;
+  }
+}
+
+//----------------------------------------------------------------------------------------
 // Compute a Viterbi alignment
 template<class T>
 Path& viterbi(Pars &pars, vector<char> iSeq, map<unsigned,string> &stateIDs) {
@@ -93,17 +133,19 @@ void report( Path& path, vector<char>& iSeq, map<unsigned,string> stateIDs) {
   cout << "path  " << pathStr << endl;
   cout << "state " << stateStr << endl;
 }
-
+//----------------------------------------------------------------------------------------
 template<class T>
 void execute(Pars pars, vector<char>& iSeq) {
+  int iterations(9);
+  estimate<T>(iterations, pars, iSeq);
   map<unsigned,string> stateIDs;
   Path& path = viterbi<T>(pars, iSeq, stateIDs);
   report<T>(path, iSeq, stateIDs);
 }
-
+//----------------------------------------------------------------------------------------
 int main(int argc, char** argv) {
   Pars pars;
-  pars.tau = 0.01;
+  pars.tau = 0.0001;
 
   char* file = (char*)"sequence.fa";
   if (argc == 1) {
