@@ -36,16 +36,16 @@
   iTranslate[(unsigned)'T'] = 3;
   iTranslate[(unsigned)'t'] = 3;
 
-  double emitProbs1[4];
-  emitProbs1[0] = 0.1;
-  emitProbs1[1] = 0.1;
-  emitProbs1[2] = 0.4;
-  emitProbs1[3] = 0.4;
-  double emitProbs2[4];
-  emitProbs2[0] = 0.1;
-  emitProbs2[1] = 0.4;
-  emitProbs2[2] = 0.1;
-  emitProbs2[3] = 0.4;
+  vector<double> emitProbs1;
+  emitProbs1.push_back(0.1);
+  emitProbs1.push_back(0.1);
+  emitProbs1.push_back(0.4);
+  emitProbs1.push_back(0.4);
+  vector<double> emitProbs2;
+  emitProbs2.push_back(0.1);
+  emitProbs2.push_back(0.4);
+  emitProbs2.push_back(0.1);
+  emitProbs2.push_back(0.4);
 
   ]]>
 </code>

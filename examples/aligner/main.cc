@@ -7,34 +7,165 @@
 #include <cassert>
 
 //----------------------------------------------------------------------------------------
-class Pars {
+class Pars 
+{
 public:
   double tau; // length parameter
 };
-
 //----------------------------------------------------------------------------------------
-// Accessor classes
-class SeqGenAccess {
+template <class T_dpt, class T_ne_dpt, class T_bwc>
+class HMMDriver
+{
 public:
-  typedef SeqGenDPTable    DPTable;
-  typedef SeqGenBaumWelch  BaumWelchCounters;
-  static bfloat Forward(DPTable** ppOutTable, Pars pars, vector<char>& iSequence) {
-    return ::Forward(ppOutTable, pars.tau, iSequence);
-  }
-  static bfloat Backward(BaumWelchCounters& bw, DPTable* pInTable, Pars pars, vector<char>& iSequence) {
-    return ::Backward(bw, pInTable, pars.tau, iSequence);
-  }
-  static bfloat Viterbi_recurse(DPTable** ppOutTable, Pars pars, vector<char>& iSequence) {
-    return ::Viterbi_recurse(ppOutTable, pars.tau, iSequence);
-  }
-  static Path& Viterbi_trace(DPTable* pInTable, Pars pars, vector<char>& iSequence) {
-    return ::Viterbi_trace(pInTable, pars.tau, iSequence);
-  }
-};
+  HMMDriver(Pars &pars, unsigned n_states);
+  void sample();
+  void estimate();
+  void viterbi();
+  void report();
 
+  unsigned n_states;
+  Pars pars;
+  vector<double> emit_probs_1,emit_probs_2;
+  T_ne_dpt *ne_dptable;                      // DP table for emmissionless HMM
+  T_bwc *bw_counters;                        // Baum Welch counters for regular HMM
+  T_dpt *fw_dptable,*bw_dptable,*vt_dptable; // DP tables for regular HMM
+  map<unsigned,string> ne_state_ids;         // state ID translators for emmissionless and regular HMM
+  map<unsigned,string> state_ids;            // (no, they're not necessarily the *#$! same)
+  vector<char> sampled_seq;                  // true (sampled) sequence
+  Path *true_path,*path_out;                 // true (sampled) path out viterbi path
+  unsigned iterations;
+};
+//----------------------------------------------------------------------------------------
+template <class T_dpt, class T_ne_dpt, class T_bwc>
+HMMDriver<T_dpt, T_ne_dpt, T_bwc>::HMMDriver(Pars &pars, unsigned n_states):
+  n_states(n_states),
+  pars(pars),
+  ne_dptable(0),
+  bw_counters(0),
+  fw_dptable(0),
+  bw_dptable(0),
+  vt_dptable(0),
+  true_path(0),
+  path_out(0),
+  iterations(9)
+{
+  //----------------------------------------------------------------------------------------
+  // why doesn't hmmoc put these numbers in the *header*?
+  emit_probs_1.push_back(0.1);
+  emit_probs_1.push_back(0.1);
+  emit_probs_1.push_back(0.4);
+  emit_probs_1.push_back(0.4);
+
+  emit_probs_2.push_back(0.1);
+  emit_probs_2.push_back(0.4);
+  emit_probs_2.push_back(0.1);
+  emit_probs_2.push_back(0.4);
+}
+//----------------------------------------------------------------------------------------
+template <class T_dpt, class T_ne_dpt, class T_bwc>
+void HMMDriver<T_dpt, T_ne_dpt, T_bwc>::sample() 
+{
+  do {
+    NEBackward(&ne_dptable, pars.tau);           // Initialize the DP table using the Backward algorithm
+    true_path = &NESample(ne_dptable, pars.tau); // Sample
+  } while ((true_path->size() - 1) < 1/pars.tau);            // We don't want short sequences
+  cout << "Sampled " << (true_path->size() - 1) << " throws" << endl;
+  for(unsigned is=0; is<n_states; is++) ne_state_ids[is] = ne_dptable->getStateId(is);
+  const char *nukes = "ACGT"; // surely this is defined somewhere else? can't find it
+  for(unsigned is=0; is<true_path->size(); is++) {
+    assert(ne_state_ids.find(true_path->toState(is)) != ne_state_ids.end());
+    string stateStr = ne_state_ids[true_path->toState(is)];
+    vector<double> *emit_probs(0);
+    if(stateStr=="NEgenerate1")      emit_probs = &emit_probs_1;
+    else if(stateStr=="NEgenerate2") emit_probs = &emit_probs_2;
+    else if(stateStr=="NEbegin" || stateStr=="NEstop") {
+      break;
+    } else {
+      cout << "ACK: " << stateStr << endl;
+      assert(0);
+    }
+      
+    double prob = random() / (double)RAND_MAX;
+    unsigned ip(0);
+    while(true) {
+      if(prob < (*emit_probs)[ip]) {
+	sampled_seq.push_back(nukes[ip]);
+	break;
+      }
+      prob -= (*emit_probs)[ip];
+      ip++;
+      assert(prob>0);
+    }
+  }
+}
+//----------------------------------------------------------------------------------------
+// use Baum-Welch training to estimate parameters
+template <class T_dpt, class T_ne_dpt, class T_bwc>
+void HMMDriver<T_dpt, T_ne_dpt, T_bwc>::estimate()
+{
+  bw_counters = new T_bwc;
+  cout << "parameter estimation:" << endl;
+  cout << setw(12) << "iteration" << setw(12) << "likelihood" << setw(12) << "tau" << endl;
+  for(unsigned iter=1; iter<=iterations; ++iter) {
+    bfloat fw = Forward(&fw_dptable, pars.tau, sampled_seq); // calculate the forward DP table
+    // calculate the Baum-Welch estimated transition counts
+    bw_counters->resetCounts();
+    Backward(*bw_counters, fw_dptable, pars.tau, sampled_seq);
+    cout << setw(12) << iter << setw(12) << fw << setw(12) << pars.tau << endl;
+    delete fw_dptable;
+    fw_dptable = 0;
+    // get the expected transition counts
+    double trG1S = bw_counters->transitionBaumWelchCount0[ bw_counters->transitionIndex("trG1S") ];
+    double trG2S = bw_counters->transitionBaumWelchCount0[ bw_counters->transitionIndex("trG2S") ];
+    // calculate the new parameters
+    pars.tau = (trG1S + trG2S) / 2;
+  }
+  delete bw_counters;
+  bw_counters = 0;
+}
+//----------------------------------------------------------------------------------------
+// Compute a Viterbi alignment
+template <class T_dpt, class T_ne_dpt, class T_bwc>
+void HMMDriver<T_dpt, T_ne_dpt, T_bwc>::viterbi()
+{
+  cout << "viterbi recursion and traceback" << endl;
+  Viterbi_recurse(&vt_dptable, pars.tau, sampled_seq);
+  path_out = &Viterbi_trace(vt_dptable, pars.tau, sampled_seq);
+  for(unsigned is=0; is<n_states; is++) state_ids[is] = vt_dptable->getStateId(is);
+  delete vt_dptable;
+  vt_dptable = 0;
+}
+//----------------------------------------------------------------------------------------
+// Print the Viterbi alignment, and a summary of the posteriors
+template <class T_dpt, class T_ne_dpt, class T_bwc>
+void HMMDriver<T_dpt, T_ne_dpt, T_bwc>::report() 
+{
+  string seqStr(""),pathStr("");
+  cout << "path: " << path_out->size() << " seq: " << sampled_seq.size() << endl;
+  unsigned imax = max((unsigned)path_out->size(), (unsigned)sampled_seq.size());
+  for(unsigned is=0; is<imax; is++) {
+    if(is < path_out->size()) {
+      assert(state_ids.find(path_out->toState(is)) != state_ids.end());
+      pathStr += *(state_ids[path_out->toState(is)].end()-1);
+    }
+    if(is < sampled_seq.size()) {
+      seqStr += sampled_seq[is];
+    }
+  }
+  cout << "emitted sequence " << seqStr << endl;
+  cout << "vtb path         " << pathStr << endl;
+
+  string true_path_str("");
+  for(unsigned is=0; is<true_path->size(); is++) {
+    assert(ne_state_ids.find(true_path->toState(is)) != ne_state_ids.end());
+    true_path_str += *(ne_state_ids[true_path->toState(is)].end()-1);
+  }
+  cout << "true path        " << true_path_str << endl;
+}
 //----------------------------------------------------------------------------------------
 // read input file: first column should be sequence IDs, second column the sequences. Gaps are removed and sequences are uppercased
-void readFile(istream& is, vector<pair<string,vector<char> > > &seqs) {
+void readFile(istream& is, vector<pair<string,vector<char> > > &seqs) 
+{
   string line;
   while(getline(is,line)) {
     stringstream ss(line);
@@ -65,160 +196,15 @@ void readFile(istream& is, vector<pair<string,vector<char> > > &seqs) {
   }
 }
 //----------------------------------------------------------------------------------------
-// sample from emissionless hmm
-Path *sample(Pars pars, NESeqGenDPTable *NEDPTable) {
-  int iPathLength(0);
-  Path *pTruePath;
-  do {
-    NEBackward(&NEDPTable, pars.tau);                     // Initialize the DP table using the Backward algorithm
-    pTruePath = &NESample(NEDPTable, pars.tau);            // Sample
-    iPathLength = pTruePath->size()-1;
-  } while (iPathLength < 1/pars.tau);         // We don't want short sequences
-  cout << "Sampled " << iPathLength << " throws" << endl;
-  return pTruePath;
-}
-//----------------------------------------------------------------------------------------
-// use Baum-Welch training to estimate parameters
-template<class T>
-void estimate(int iterations, Pars& pars, vector<char>& iSeq) {
-  typename T::DPTable* pFW;
-  typename T::BaumWelchCounters baumWelch;
-  for (int iter=1; iter <= iterations; ++iter) {
-    // calculate the forward DP table
-    cout << "Forward..." << endl;
-    bfloat fw = T::Forward(&pFW, pars, iSeq);
-
-    // calculate the Baum-Welch estimated transition counts
-    baumWelch.resetCounts();
-    cout << "Baum-Welch + backward..." << endl;
-    bfloat bw = T::Backward(baumWelch, pFW, pars, iSeq);
-
-    cout << "Iteration " << iter << ": likelihood = " << fw << endl;
-    cout << "estimated pars: "
-	 << setw(12) << pars.tau
-	 << endl;
-
-    // remove the forward table
-    delete pFW;
-
-    // get the expected transition counts
-    double trG1S = baumWelch.transitionBaumWelchCount0[ baumWelch.transitionIndex("trG1S") ];
-    double trG2S = baumWelch.transitionBaumWelchCount0[ baumWelch.transitionIndex("trG2S") ];
-
-    // calculate the new parameters
-    pars.tau = (trG1S + trG2S) / 2;
-  }
-}
-
-//----------------------------------------------------------------------------------------
-// Compute a Viterbi alignment
-template<class T>
-Path& viterbi(Pars &pars, vector<char> iSeq, map<unsigned,string> &stateIDs) {
-  typename T::DPTable* pViterbiTable;
-  cout << "Viterbi recursion..." << endl;
-  T::Viterbi_recurse(&pViterbiTable, pars, iSeq);
-  cout << "Viterbi traceback..." << endl;
-  Path& path = T::Viterbi_trace(pViterbiTable, pars, iSeq);
-  stateIDs[0] = pViterbiTable->getStateId(0);
-  stateIDs[1] = pViterbiTable->getStateId(1);
-  stateIDs[2] = pViterbiTable->getStateId(2);
-  stateIDs[3] = pViterbiTable->getStateId(3);
-  delete pViterbiTable;
-  return path;
-}
-
-//----------------------------------------------------------------------------------------
-// Print the Viterbi alignment, and a summary of the posteriors
-template<class T>
-void report( Path& path, vector<char>& iSeq, map<unsigned,string> stateIDs) {
-  string pathStr(""),stateStr("");
-  cout << "path: " << path.size() << " seq: " << iSeq.size() << endl;
-  for (unsigned i=0; i < max((unsigned)path.size(), (unsigned)iSeq.size()); i++) {
-    if(i<iSeq.size()) {
-      pathStr += iSeq[i];
-    }
-    if(i<path.size()) {
-      assert(stateIDs.find(path.toState(i)) != stateIDs.end());
-      stateStr += *(stateIDs[path.toState(i)].end()-1);
-    }
-  }
-  cout << "path  " << pathStr << endl;
-  cout << "state " << stateStr << endl;
-}
-//----------------------------------------------------------------------------------------
-template<class T>
-void execute(Pars pars, vector<char>& iSeq) {
-  cout << "ex" << endl;
-  int iterations(9);
-  estimate<T>(iterations, pars, iSeq);
-  map<unsigned,string> stateIDs;
-  Path& path = viterbi<T>(pars, iSeq, stateIDs);
-  report<T>(path, iSeq, stateIDs);
-}
-//----------------------------------------------------------------------------------------
-int main(int argc, char** argv) {
+int main(int argc, char** argv) 
+{
   srand(getpid());
   Pars pars;
   pars.tau = 0.1;
-  //----------------------------------------------------------------------------------------
-  // hrrrrrg why doesn't hmmoc put these in the *header*?
-  double emitProbs1[4];
-  emitProbs1[0] = 0.1;
-  emitProbs1[1] = 0.1;
-  emitProbs1[2] = 0.4;
-  emitProbs1[3] = 0.4;
-  double emitProbs2[4];
-  emitProbs2[0] = 0.1;
-  emitProbs2[1] = 0.4;
-  emitProbs2[2] = 0.1;
-  emitProbs2[3] = 0.4;
-
-
-  NESeqGenDPTable *NEDPTable(0);
-  Path *truePath = sample(pars, NEDPTable);
-  map<unsigned,string> NEstateIDs;
-  NEstateIDs[0] = NEDPTable->getStateId(0);
-  NEstateIDs[1] = NEDPTable->getStateId(1);
-  NEstateIDs[2] = NEDPTable->getStateId(2);
-  NEstateIDs[3] = NEDPTable->getStateId(3);
-  const char *nukes = "ACGT"; // surely this is defined somewhere else? can't find it
-  vector<char> sampleSeq;
-  for(unsigned is=0; is<truePath->size(); is++) {
-    assert(NEstateIDs.find(truePath->toState(is)) != NEstateIDs.end());
-    string stateStr = NEstateIDs[truePath->toState(is)];
-    double *emitProbs(0);
-    if(stateStr=="NEgenerate1")      emitProbs = emitProbs1;
-    else if(stateStr=="NEgenerate2") emitProbs = emitProbs2;
-    else if(stateStr=="NEbegin" || stateStr=="NEstop") {
-      break;
-    } else {
-      cout << "ACK: " << stateStr << endl;
-    }
-      
-    double prob = random() / (double)RAND_MAX;
-    unsigned ip(0);
-    while(true) {
-      // cout
-      // 	<< setw(12) << prob;
-      if(prob<emitProbs[ip]) {
-	// cout
-	//   << " --> "
-	//   << setw(12) << nukes[ip];
-	sampleSeq.push_back(nukes[ip]);
-	break;
-      }
-      // cout << "(-=" << emitProbs[ip] << ")";
-      prob -= emitProbs[ip];
-      ip++;
-      assert(prob>0);
-    }
-    // cout << endl;
-  }
-  execute<SeqGenAccess>(pars, sampleSeq);
-  string stateStr("");
-  for(unsigned is=0; is<truePath->size(); is++) {
-    assert(NEstateIDs.find(truePath->toState(is)) != NEstateIDs.end());
-    stateStr += *(NEstateIDs[truePath->toState(is)].end()-1);
-  }
-  cout << "state " << stateStr << endl;
+  unsigned n_states(4);
+  HMMDriver<SeqGenDPTable, NESeqGenDPTable, SeqGenBaumWelch> hmmd(pars, n_states);
+  hmmd.sample();
+  hmmd.estimate();
+  hmmd.viterbi();
+  hmmd.report();
 }
