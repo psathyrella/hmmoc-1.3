@@ -11,6 +11,8 @@ class Pars
 {
 public:
   double tau; // length parameter
+  double gamma1; // rate G1 to G2
+  double gamma2; // rate G2 to G1
 };
 //----------------------------------------------------------------------------------------
 template <class T_dpt, class T_ne_dpt, class T_bwc>
@@ -37,9 +39,12 @@ public:
 };
 //----------------------------------------------------------------------------------------
 template <class T_dpt, class T_ne_dpt, class T_bwc>
-HMMDriver<T_dpt, T_ne_dpt, T_bwc>::HMMDriver(Pars &pars, unsigned n_states):
+HMMDriver<T_dpt, T_ne_dpt, T_bwc>::HMMDriver(Pars &pars, unsigned n_states, unsigned n_letters):
   n_states(n_states),
+  n_letters(n_letters),
   pars(pars),
+  emit_probs_1({0.1,0.1,0.4,0.4}),
+  emit_probs_2({0.1,0.4,0.1,0.4}),
   ne_dptable(0),
   bw_counters(0),
   fw_dptable(0),
@@ -47,29 +52,19 @@ HMMDriver<T_dpt, T_ne_dpt, T_bwc>::HMMDriver(Pars &pars, unsigned n_states):
   vt_dptable(0),
   true_path(0),
   path_out(0),
-  iterations(9)
+  iterations(2)
 {
-  //----------------------------------------------------------------------------------------
-  // why doesn't hmmoc put these numbers in the *header*?
-  emit_probs_1.push_back(0.1);
-  emit_probs_1.push_back(0.1);
-  emit_probs_1.push_back(0.4);
-  emit_probs_1.push_back(0.4);
-
-  emit_probs_2.push_back(0.1);
-  emit_probs_2.push_back(0.4);
-  emit_probs_2.push_back(0.1);
-  emit_probs_2.push_back(0.4);
 }
 //----------------------------------------------------------------------------------------
 template <class T_dpt, class T_ne_dpt, class T_bwc>
 void HMMDriver<T_dpt, T_ne_dpt, T_bwc>::sample() 
 {
+  cout << "sampling " << endl;
   do {
-    NEBackward(&ne_dptable, pars.tau);           // Initialize the DP table using the Backward algorithm
-    true_path = &NESample(ne_dptable, pars.tau); // Sample
+    NEBackward(&ne_dptable, pars.tau, pars.gamma1, pars.gamma2);           // Initialize the DP table using the Backward algorithm
+    true_path = &NESample(ne_dptable, pars.tau, pars.gamma1, pars.gamma2); // Sample
   } while ((true_path->size() - 1) < 1/pars.tau);            // We don't want short sequences
-  cout << "Sampled " << (true_path->size() - 1) << " throws" << endl;
+  cout << setw(25) << (true_path->size() - 1) << " throws" << endl;
   for(unsigned is=0; is<n_states; is++) ne_state_ids[is] = ne_dptable->getStateId(is);
   const char *nukes = "ACGT"; // surely this is defined somewhere else? can't find it
   for(unsigned is=0; is<true_path->size(); is++) {
@@ -105,20 +100,44 @@ void HMMDriver<T_dpt, T_ne_dpt, T_bwc>::estimate()
 {
   bw_counters = new T_bwc;
   cout << "parameter estimation:" << endl;
-  cout << setw(12) << "iteration" << setw(12) << "likelihood" << setw(12) << "tau" << endl;
+  cout << setw(12) << "iteration" << setw(12) << "likelihood"
+       << setw(12) << "gamma1"
+       << setw(12) << "gamma2"
+       << endl;
   for(unsigned iter=1; iter<=iterations; ++iter) {
-    bfloat fw = Forward(&fw_dptable, pars.tau, sampled_seq); // calculate the forward DP table
+    bfloat fw = Forward(&fw_dptable, pars.tau, pars.gamma1, pars.gamma2, sampled_seq, emit_probs_1, emit_probs_2); // calculate the forward DP table
     // calculate the Baum-Welch estimated transition counts
     bw_counters->resetCounts();
-    Backward(*bw_counters, fw_dptable, pars.tau, sampled_seq);
-    cout << setw(12) << iter << setw(12) << fw << setw(12) << pars.tau << endl;
+    Backward(*bw_counters, fw_dptable, pars.tau, pars.gamma1, pars.gamma2, sampled_seq, emit_probs_1, emit_probs_2);
+    cout
+      << setw(12) << iter
+      << setw(12) << fw
+      << setw(12) << pars.gamma1
+      << setw(12) << pars.gamma2
+      << endl;
     delete fw_dptable;
     fw_dptable = 0;
     // get the expected transition counts
-    double trG1S = bw_counters->transitionBaumWelchCount0[ bw_counters->transitionIndex("trG1S") ];
-    double trG2S = bw_counters->transitionBaumWelchCount0[ bw_counters->transitionIndex("trG2S") ];
+
+    for(unsigned ie=0; ie<n_
+    cout
+      << setw(12) << "emit1"  << setw(12) << bw_counters->emissionIndex("emit1" ) << setw(12) << bw_counters->emissionBaumWelchCount0[bw_counters->emissionIndex("emit1" )] << endl
+      << setw(12) << "emit2"  << setw(12) << bw_counters->emissionIndex("emit2" ) << setw(12) << bw_counters->emissionBaumWelchCount0[bw_counters->emissionIndex("emit2" )] << endl
+      << setw(12) << "empty"  << setw(12) << bw_counters->emissionIndex("empty" ) << setw(12) << bw_counters->emissionBaumWelchCount0[bw_counters->emissionIndex("empty" )] << endl;
+      // << setw(12) << "trBG1"  << setw(12) << bw_counters->transitionIndex("trBG1" ) << setw(12) << bw_counters->transitionBaumWelchCount0[bw_counters->transitionIndex("trBG1" )] << endl
+      // << setw(12) << "trBG2"  << setw(12) << bw_counters->transitionIndex("trBG2" ) << setw(12) << bw_counters->transitionBaumWelchCount0[bw_counters->transitionIndex("trBG2" )] << endl
+      // << setw(12) << "trG1G1" << setw(12) << bw_counters->transitionIndex("trG1G1") << setw(12) << bw_counters->transitionBaumWelchCount0[bw_counters->transitionIndex("trG1G1")] << endl
+      // << setw(12) << "trG1G2" << setw(12) << bw_counters->transitionIndex("trG1G2") << setw(12) << bw_counters->transitionBaumWelchCount0[bw_counters->transitionIndex("trG1G2")] << endl
+      // << setw(12) << "trG2G2" << setw(12) << bw_counters->transitionIndex("trG2G2") << setw(12) << bw_counters->transitionBaumWelchCount0[bw_counters->transitionIndex("trG2G2")] << endl
+      // << setw(12) << "trG2G1" << setw(12) << bw_counters->transitionIndex("trG2G1") << setw(12) << bw_counters->transitionBaumWelchCount0[bw_counters->transitionIndex("trG2G1")] << endl
+      // << setw(12) << "trG1S"  << setw(12) << bw_counters->transitionIndex("trG1S" ) << setw(12) << bw_counters->transitionBaumWelchCount0[bw_counters->transitionIndex("trG1S" )] << endl
+      // << setw(12) << "trG2S"  << setw(12) << bw_counters->transitionIndex("trG2S" ) << setw(12) << bw_counters->transitionBaumWelchCount0[bw_counters->transitionIndex("trG2S" )] << endl;
+
     // calculate the new parameters
-    pars.tau = (trG1S + trG2S) / 2;
+    // double trG1G2 = bw_counters->transitionBaumWelchCount0[ bw_counters->transitionIndex("trG1G2") ];
+    // double trG2G1 = bw_counters->transitionBaumWelchCount0[ bw_counters->transitionIndex("trG2G1") ];
+    // pars.gamma1 = trG1G2 + 0.0001;
+    // pars.gamma2 = trG2G1 + 0.0001;
   }
   delete bw_counters;
   bw_counters = 0;
@@ -129,8 +148,8 @@ template <class T_dpt, class T_ne_dpt, class T_bwc>
 void HMMDriver<T_dpt, T_ne_dpt, T_bwc>::viterbi()
 {
   cout << "viterbi recursion and traceback" << endl;
-  Viterbi_recurse(&vt_dptable, pars.tau, sampled_seq);
-  path_out = &Viterbi_trace(vt_dptable, pars.tau, sampled_seq);
+  Viterbi_recurse(&vt_dptable, pars.tau, pars.gamma1, pars.gamma2, sampled_seq, emit_probs_1, emit_probs_2);
+  path_out = &Viterbi_trace(vt_dptable, pars.tau, pars.gamma1, pars.gamma2, sampled_seq, emit_probs_1, emit_probs_2);
   for(unsigned is=0; is<n_states; is++) state_ids[is] = vt_dptable->getStateId(is);
   delete vt_dptable;
   vt_dptable = 0;
@@ -141,7 +160,6 @@ template <class T_dpt, class T_ne_dpt, class T_bwc>
 void HMMDriver<T_dpt, T_ne_dpt, T_bwc>::report() 
 {
   string seqStr(""),pathStr("");
-  cout << "path: " << path_out->size() << " seq: " << sampled_seq.size() << endl;
   unsigned imax = max((unsigned)path_out->size(), (unsigned)sampled_seq.size());
   for(unsigned is=0; is<imax; is++) {
     if(is < path_out->size()) {
@@ -200,9 +218,12 @@ int main(int argc, char** argv)
 {
   srand(getpid());
   Pars pars;
-  pars.tau = 0.1;
+  pars.tau = 0.0011;
+  pars.gamma1 = 0.5;
+  pars.gamma2 = 0.5;
   unsigned n_states(4);
-  HMMDriver<SeqGenDPTable, NESeqGenDPTable, SeqGenBaumWelch> hmmd(pars, n_states);
+  unsigned n_letters(4);
+  HMMDriver<SeqGenDPTable, NESeqGenDPTable, SeqGenBaumWelch> hmmd(pars, n_states, n_letters);
   hmmd.sample();
   hmmd.estimate();
   hmmd.viterbi();
