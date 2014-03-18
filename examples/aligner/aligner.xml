@@ -173,16 +173,18 @@
 </hmm>
 
 <!-- Code generation -->
+<!-- No emission hmm -->
 <backward  outputTable="yes" name="NEBackward" id="nebw">
   <hmm idref="NESeqGen"/>
 </backward>
 <sample  name="NESample" id="nesmp">
   <hmm idref="NESeqGen"/>
 </sample>
+<!-- Regular emission hmm -->
 <forward outputTable="yes" baumWelch="no" name="Forward" id="fw">
   <hmm idref="SeqGen"/>
 </forward>
-<backward outputTable="no" baumWelch="emissions" name="Backward" id="bw">
+<backward outputTable="yes" baumWelch="emissions" name="Backward" id="bw">
   <hmm idref="SeqGen"/>
 </backward>
 <viterbi name="Viterbi" id="vit" outputTable="yes">
