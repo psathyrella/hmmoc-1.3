@@ -52,6 +52,7 @@
        double iGoHonest;
        double iGoDishonest;
        double iGoStop;
+       double aEmitHonest[6];
        double aEmitDishonest[6];
      };
    ]]>
@@ -70,9 +71,7 @@
      <identifier output="sequence" value="iEmission"/>
      <identifier type="result" value="iProb"/>
      <![CDATA[
-       iProb = 1/6.0;
-       /* This probability does not depend on the symbol.  HMMoC warns if it does not see the label 'iEmission'
-          somewhere in the code -- its appearance in this comment stops it from warning */
+       iProb = iPar.aEmitHonest[ iEmission - '1' ];
      ]]>
     </code>
    </probability>

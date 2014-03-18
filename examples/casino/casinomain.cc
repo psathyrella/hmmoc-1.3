@@ -5,6 +5,7 @@
 
 
 int main(void) {
+  srand(getpid());
   Params iPar; // The parameters of the model
 
   // Fill it with some values
@@ -12,6 +13,12 @@ int main(void) {
   iPar.iGoDishonest = 0.05;     // probability of going from Honest to the Dishonest state
   iPar.iGoStop = 0.00001;       // probability of going from either to the End state
 
+  iPar.aEmitHonest[0] = 1./6; 
+  iPar.aEmitHonest[1] = 1./6;
+  iPar.aEmitHonest[2] = 1./6;
+  iPar.aEmitHonest[3] = 1./6;
+  iPar.aEmitHonest[4] = 1./6;
+  iPar.aEmitHonest[5] = 1./6;
   iPar.aEmitDishonest[0] = 0.1; 
   iPar.aEmitDishonest[1] = 0.1;
   iPar.aEmitDishonest[2] = 0.1;
@@ -37,7 +44,6 @@ int main(void) {
   // Next, build an input emission sequence by sampling the emitted symbols according to true path
   //
   char* aSequence = new char[ iPathLength ];
-  // int iNEHonest = pDPNE->getId("NEhonest");         // Get identifier of the honest state
   for (int i=0; i<iPathLength; i++) {
     double iP = random() / (double)RAND_MAX;
     int iSymbol = -1;
@@ -45,10 +51,9 @@ int main(void) {
       // Calculate probability of current symbol, depending on current state
       double iCurrentP;
       iSymbol += 1;
-      // if (pTruePath->toState(i) == iNEHonest) {
-      if(pDPNE->getStateId(pTruePath->toState(i)) == "NEhonest") {
-	iCurrentP = 1/6.0;
-      } else if(pDPNE->getStateId(pTruePath->toState(i)) == "NEdishonest") {
+      if (pDPNE->getStateId(pTruePath->toState(i)) == "NEhonest") {
+	iCurrentP = iPar.aEmitHonest[iSymbol];
+      } else if (pDPNE->getStateId(pTruePath->toState(i)) == "NEdishonest") {
 	iCurrentP = iPar.aEmitDishonest[iSymbol];
       } else assert(0);
       iP -= iCurrentP;
@@ -78,25 +83,20 @@ int main(void) {
   Path& iViterbiPath = Viterbi_trace(pViterbiDP, iPar, aSequence, iPathLength );
   
   // Find out how many states the Viterbi algorithm recovered correctly
-  int iCorrect = 0,iNewCorrect = 0;
+  int iNewCorrect = 0;
   for (int i=0; i<(int)iViterbiPath.size(); i++) {      // include last transition to the 'end' state
-    if (iViterbiPath.toState(i) == pTruePath->toState(i)) {
-      iCorrect += 1; // NOTE: since the code generation is non-deterministic, in this case the ordering of state labels
-                     //    is not predictable (make clean; make gives different values), this gives the number which were
-                     //    *in*correct maybe 1/4 of the time
-    }
     string inferredState = pViterbiDP->getStateId(iViterbiPath.toState(i));
     string realState = pDPNE->getStateId(pTruePath->toState(i));
     assert(realState.find("NE") != string::npos);
     realState.erase(0,2);
-    if(inferredState == realState)
+    if (inferredState == realState)
       iNewCorrect += 1;
   }
-  cout << "Viterbi decoding got " << iCorrect << " out of " << iViterbiPath.size() << " states correct." << endl;
-  cout << "or: " << setw(12) << iNewCorrect << " / " << iViterbiPath.size() << " = " << (double(iNewCorrect) / iViterbiPath.size()) << endl;
+  cout << "correct: "
+       << setw(12) << iNewCorrect << " / " << iViterbiPath.size()
+       << " = " << (double(iNewCorrect) / iViterbiPath.size()) << endl;
 
   cout << "Baum Welch emission counts:"<<endl;
-
   cout << setw(12) << " " << setw(12) << "Honest" << setw(12) << "Dishonest" << endl;
   for (int i=0; i<6; i++) {
     cout << setw(12) << i
@@ -105,21 +105,19 @@ int main(void) {
 	 << endl;
   }
 
-  // Compare the true and Viterbi paths, and print the posterior probability of being in the honest state
-  // int iVHonest = pViterbiDP->getId("honest");
-
+  // Compare the true and Viterbi paths, and print the posterior
+  // probability of being in the honest state
   for (int i=0; i<min(iPathLength,30); i++) {
-
     cout << aSequence[i] << " True:";
-    if(pDPNE->getStateId(pTruePath->toState(i)) == "NEhonest") {
+    if (pDPNE->getStateId(pTruePath->toState(i)) == "NEhonest") {
       cout << "H";
-    } else if(pDPNE->getStateId(pTruePath->toState(i)) == "NEdishonest") {
+    } else if (pDPNE->getStateId(pTruePath->toState(i)) == "NEdishonest") {
       cout << "D";
     } else assert(0);
     cout << " Viterbi:";
-    if(pViterbiDP->getStateId(iViterbiPath.toState(i)) == "honest") {
+    if (pViterbiDP->getStateId(iViterbiPath.toState(i)) == "honest") {
       cout << "H";
-    } else if(pViterbiDP->getStateId(iViterbiPath.toState(i)) == "dishonest") {
+    } else if (pViterbiDP->getStateId(iViterbiPath.toState(i)) == "dishonest") {
       cout << "D";
     } else assert(0);
 
