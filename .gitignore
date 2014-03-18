@@ -21,8 +21,8 @@ examples/aligner/out.txt
 /casino
 /aligner
 /examples/casino/algebras.cc
-/examples/casino/casino
-/examples/casino/casino.h
 /examples/casino/algebras.h
+/examples/casino/casino
 /examples/casino/casino.cc
+/examples/casino/casino.h
 /examples/casino/dptables.h
