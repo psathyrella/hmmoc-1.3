@@ -3,28 +3,20 @@
 #include <iomanip>
 #include <cassert>
 
-
 int main(void) {
   srand(getpid());
-  Params iPar; // The parameters of the model
 
-  // Fill it with some values
-  iPar.iGoHonest = 0.02;        // probability of going from Dishonest to the Honest state
-  iPar.iGoDishonest = 0.05;     // probability of going from Honest to the Dishonest state
-  iPar.iGoStop = 0.00001;       // probability of going from either to the End state
-
-  iPar.aEmitHonest[0] = 1./6; 
-  iPar.aEmitHonest[1] = 1./6;
-  iPar.aEmitHonest[2] = 1./6;
-  iPar.aEmitHonest[3] = 1./6;
-  iPar.aEmitHonest[4] = 1./6;
-  iPar.aEmitHonest[5] = 1./6;
-  iPar.aEmitDishonest[0] = 0.1; 
-  iPar.aEmitDishonest[1] = 0.1;
-  iPar.aEmitDishonest[2] = 0.1;
-  iPar.aEmitDishonest[3] = 0.1;
-  iPar.aEmitDishonest[4] = 0.1;
-  iPar.aEmitDishonest[5] = 0.5; // Probability of throwing a 6 is heavily favoured in the Dishonest state
+  unsigned n_letters(4); // number of letters in emission alphabet
+  Pars pars;
+  pars.iGoHonest = 0.02;
+  pars.iGoDishonest = 0.05;
+  pars.iGoStop = 0.005;
+  // pars.aEmitHonest = {0.25, 0.25, 0.25, 0.25};
+  // pars.aEmitDishonest = {0.1, 0.1, 0.1, 0.7};
+  pars.aEmitHonest = {0.1, 0.4, 0.1, 0.4};
+  pars.aEmitDishonest = {0.1, 0.1, 0.4, 0.4};
+  assert(n_letters == pars.aEmitHonest.size());
+  assert(n_letters == pars.aEmitDishonest.size());
 
   //
   // Sample a path.  This uses the HMM that does not emit symbols, because we want to sample from the HMM
@@ -34,10 +26,10 @@ int main(void) {
   Path *pTruePath;
   NoEmissionCasinoDPTable* pDPNE;               
   do {
-    NEBackward(&pDPNE, iPar);                     // Initialize the DP table using the Backward algorithm
-    pTruePath = &NESample(pDPNE,iPar);            // Sample
+    NEBackward(&pDPNE, pars);                     // Initialize the DP table using the Backward algorithm
+    pTruePath = &NESample(pDPNE,pars);            // Sample
     iPathLength = pTruePath->size()-1;
-  } while (iPathLength < 1/iPar.iGoStop);         // We don't want short sequences
+  } while (iPathLength < 1/pars.iGoStop);         // We don't want short sequences
   cout << "Sampled " << iPathLength << " throws" << endl;
 
   //
@@ -52,9 +44,9 @@ int main(void) {
       double iCurrentP;
       iSymbol += 1;
       if (pDPNE->getStateId(pTruePath->toState(i)) == "NEhonest") {
-	iCurrentP = iPar.aEmitHonest[iSymbol];
+	iCurrentP = pars.aEmitHonest[iSymbol];
       } else if (pDPNE->getStateId(pTruePath->toState(i)) == "NEdishonest") {
-	iCurrentP = iPar.aEmitDishonest[iSymbol];
+	iCurrentP = pars.aEmitDishonest[iSymbol];
       } else assert(0);
       iP -= iCurrentP;
     } while (iP > 0.0);
@@ -68,19 +60,19 @@ int main(void) {
   CasinoBaumWelch bw;
 
   cout << "Calculating Viterbi probability..." << endl;
-  bfloat iVitProb = Viterbi_recurse(&pViterbiDP, iPar, aSequence, iPathLength );
+  bfloat iVitProb = Viterbi_recurse(&pViterbiDP, pars, aSequence, iPathLength );
   cout << "Viterbi: "<<iVitProb<<endl;
 
   cout << "Calculating Forward probability..." << endl;
-  bfloat iFWProb = Forward(&pFWDP, iPar, aSequence, iPathLength );
+  bfloat iFWProb = Forward(&pFWDP, pars, aSequence, iPathLength );
   cout << "Forward: "<<iFWProb<<endl;
 
   cout << "Calculating Backward probability..." << endl;
-  bfloat iBWProb = Backward(bw, pFWDP, &pBWDP, iPar, aSequence, iPathLength );
+  bfloat iBWProb = Backward(bw, pFWDP, &pBWDP, pars, aSequence, iPathLength );
   cout << "Backward:"<<iBWProb<<endl;
   
   cout << "Calculating Viterbi path..." << endl;
-  Path& iViterbiPath = Viterbi_trace(pViterbiDP, iPar, aSequence, iPathLength );
+  Path& iViterbiPath = Viterbi_trace(pViterbiDP, pars, aSequence, iPathLength );
   
   // Find out how many states the Viterbi algorithm recovered correctly
   int iNewCorrect = 0;
@@ -98,7 +90,7 @@ int main(void) {
 
   cout << "Baum Welch emission counts:"<<endl;
   cout << setw(12) << " " << setw(12) << "Honest" << setw(12) << "Dishonest" << endl;
-  for (int i=0; i<6; i++) {
+  for (unsigned i=0; i<n_letters; i++) {
     cout << setw(12) << i
 	 << setw(12) << bw.emissionBaumWelchCount1[i][ bw.emissionIndex("emitHonest") ]
 	 << setw(12) << bw.emissionBaumWelchCount1[i][ bw.emissionIndex("emitDishonest") ]

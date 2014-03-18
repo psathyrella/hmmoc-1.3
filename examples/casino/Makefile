@@ -17,7 +17,7 @@
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #
 casino: casinomain.cc casino.cc casino.h algebras.cc algebras.h dptables.h
-	g++ -Wno-deprecated -o $@ -lstdc++ -Wall casinomain.cc casino.cc algebras.cc
+	g++ -std=c++0x -Wno-deprecated -o $@ -lstdc++ -Wall casinomain.cc casino.cc algebras.cc
 
 casino.%:
 	../../bin/hmmoc casino.xml

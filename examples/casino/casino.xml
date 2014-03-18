@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <hml debug="true">
 <alphabet id="dice">
- 123456
+ 1234
 </alphabet>
 
 <output id="sequence">
@@ -48,12 +48,13 @@
 
  <code id="paramsClassDef" where="classdefinitions">
    <![CDATA[
-     struct Params {
+     class Pars {
+     public:
        double iGoHonest;
        double iGoDishonest;
        double iGoStop;
-       double aEmitHonest[6];
-       double aEmitDishonest[6];
+       vector<double> aEmitHonest;
+       vector<double> aEmitDishonest;
      };
    ]]>
   </code>
@@ -94,7 +95,7 @@
   <probability id="goDishonest">
     <code>
       <!--  Tell HMMoC that this code requires an input parameter, which itself need a definition to make sense -->
-      <code type="parameter" init="paramsClassDef" value="Params iPar"/>
+      <code type="parameter" init="paramsClassDef" value="Pars iPar"/>
       <!-- The actual code for this probability follows (no need to quote this) -->
         iPar.iGoDishonest
     </code>
