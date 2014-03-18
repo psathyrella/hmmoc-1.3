@@ -21,6 +21,7 @@ casino: casinomain.cc casino.cc casino.h algebras.cc algebras.h dptables.h
 
 casino.%:
 	../../bin/hmmoc casino.xml
+	../../bin/use-unused-vars.sh casino.cc CurStateMemoryblock1To CurStateMemoryNEblock1To CurStateMemoryNEblock2To CurStateMemoryNEblock3To iPrevSlowCoord
 
 algebras.h algebras.cc dptables.h:
 	cp ../../include/* .
