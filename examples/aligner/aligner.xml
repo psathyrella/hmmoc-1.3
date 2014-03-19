@@ -2,56 +2,38 @@
 <hml debug="no">
 
 <alphabet id="nucleotides">
- ACGT
+ 0123
 </alphabet>
 
 <!--  Definition of the output "tapes"  -->
 <output id="sequence">
  <alphabet idref="nucleotides"/>
- <identifier type="length" value="iLen"/>
- <identifier type="sequence" value="iSequence"/>
+ <identifier type="length" value="seq_length"/>
+ <identifier type="sequence" value="sequence"/>
  <code type="parameter">
   <![CDATA[
-     vector<char>& iSequence
+     vector<char>& sequence
   ]]>
  </code>
 </output>
 
 <code id="initialise1" type="statement">
-  <![CDATA[
-
-  int iLen = iSequence.size();
-
-  unsigned char iTranslate[256];
-  for (int i=0; i<256; i++) {
-    iTranslate[i]= 0;
-  }
-  iTranslate[(unsigned)'A'] = 0;   // It is important that this is in alphabetical order, to
-  iTranslate[(unsigned)'a'] = 0;   // make the indices correspond to those used for Baum-Welch
-  iTranslate[(unsigned)'C'] = 1;
-  iTranslate[(unsigned)'c'] = 1;
-  iTranslate[(unsigned)'G'] = 2;
-  iTranslate[(unsigned)'g'] = 2;
-  iTranslate[(unsigned)'T'] = 3;
-  iTranslate[(unsigned)'t'] = 3;
-  ]]>
+  <![CDATA[ int seq_length = sequence.size(); ]]>
 </code>
 
 <code id="initialise2" type="statement">
-  <code type="parameter"> double tau </code>    <!-- length parameter -->
-  <code type="parameter"> double go_dishonest </code> <!-- rate G1 to G2 -->
-  <code type="parameter"> double go_honest </code> <!-- rate G2 to G1 -->
+  <code type="parameter"> <![CDATA[ map<stringXcommaXdouble> pars ]]> </code>
   <![CDATA[
 
   map<string,double> m_trans; // transition matrix
-  m_trans["b_h"]  = 1;
-  m_trans["b_d"]  = 0;
-  m_trans["h_h"] = 1 - go_dishonest - tau;
-  m_trans["h_d"] = go_dishonest;
-  m_trans["d_d"] = 1 - go_honest - tau;
-  m_trans["d_h"] = go_honest;
-  m_trans["h_s"]  = tau;
-  m_trans["d_s"]  = tau;
+  m_trans["b_h"] = 1;
+  m_trans["b_d"] = 0;
+  m_trans["h_h"] = 1 - pars["go_dishonest"] - pars["go_stop"];
+  m_trans["h_d"] = pars["go_dishonest"];
+  m_trans["d_d"] = 1 - pars["go_honest"] - pars["go_stop"];
+  m_trans["d_h"] = pars["go_honest"];
+  m_trans["h_s"] = pars["go_stop"];
+  m_trans["d_s"] = pars["go_stop"];
 
   ]]>
 </code>
@@ -64,7 +46,7 @@
     <identifier type="result" value="iPP"/>
     <code type="parameter"> <![CDATA[ map<stringXcommaXvector<double> > emission_probs ]]> </code>
     <![CDATA[
-      iPP = emission_probs["honest"][ iTranslate[ iSymb ] ];
+      iPP = emission_probs["honest"][ iSymb - '0' ]; // convert char 'n' to int n
     ]]>
   </code>
 </probability>
@@ -74,7 +56,7 @@
     <identifier type="result" value="iPP"/>
     <code type="parameter"> <![CDATA[ map<stringXcommaXvector<double> > emission_probs ]]> </code>
     <![CDATA[
-      iPP = emission_probs["dishonest"][ iTranslate[ iSymb ] ];
+      iPP = emission_probs["dishonest"][ iSymb - '0' ];
     ]]>
   </code>
 </probability>
