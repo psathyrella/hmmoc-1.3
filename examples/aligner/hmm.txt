@@ -1,0 +1,6 @@
+^alphabet 0123
+^silent_states begin stop
+^states honest dishonest
+^transitions b_h b_d h_h h_d d_d d_h h_s d_s
+^honest    0.1 0.1 0.1 0.7
+^dishonest 0.3 0.3 0.3 0.1
