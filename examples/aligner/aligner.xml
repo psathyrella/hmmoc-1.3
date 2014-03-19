@@ -184,7 +184,9 @@
 <forward outputTable="yes" baumWelch="no" name="Forward" id="fw">
   <hmm idref="SeqGen"/>
 </forward>
-<backward outputTable="yes" baumWelch="emissions" name="Backward" id="bw">
+<backward outputTable="yes" baumWelch="yes" name="Backward" id="bw">
+  <!-- NOTE: outputTable was "no" in the original example, and it seemed to work... but if it's "no" -->
+  <!-- here it breaks the baum welch counters. I don't know why. -->
   <hmm idref="SeqGen"/>
 </backward>
 <viterbi name="Viterbi" id="vit" outputTable="yes">

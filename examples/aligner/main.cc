@@ -7,17 +7,24 @@
 #include <cassert>
 
 //----------------------------------------------------------------------------------------
-class Pars 
-{
+class Pars {
 public:
+  void set_gamma1(map<string,double> &tcounts);
+  
   double tau; // length parameter
   double gamma1; // rate G1 to G2
   double gamma2; // rate G2 to G1
 };
 //----------------------------------------------------------------------------------------
+void Pars::set_gamma1(map<string,double> &tcounts) {
+  assert(tcounts.find("trG1G2") != tcounts.end());
+  assert(tcounts.find("trG1G1") != tcounts.end());
+  assert(tcounts.find("trG1S")  != tcounts.end());
+  gamma1 = tcounts["trG1G2"] / (tcounts["trG1G2"] + tcounts["trG1G1"] + tcounts["trG1S"]);
+}
+//----------------------------------------------------------------------------------------
 template <class T_dpt, class T_ne_dpt, class T_bwc>
-class HMMDriver
-{
+class HMMDriver {
 public:
   HMMDriver(Pars &pars, unsigned n_states, unsigned n_letters);
   void sample();
@@ -26,6 +33,7 @@ public:
   void report();
 
   unsigned n_states,n_letters;
+  string nukes;                              // surely this is defined somewhere else? can't find it
   Pars pars;
   vector<double> emit_probs_1,emit_probs_2;
   T_ne_dpt *ne_dptable;                      // DP table for emmissionless HMM
@@ -42,6 +50,7 @@ template <class T_dpt, class T_ne_dpt, class T_bwc>
 HMMDriver<T_dpt, T_ne_dpt, T_bwc>::HMMDriver(Pars &pars, unsigned n_states, unsigned n_letters):
   n_states(n_states),
   n_letters(n_letters),
+  nukes("ACGT"),
   pars(pars),
   emit_probs_1({0.1,0.1,0.4,0.4}),
   emit_probs_2({0.1,0.4,0.1,0.4}),
@@ -52,7 +61,7 @@ HMMDriver<T_dpt, T_ne_dpt, T_bwc>::HMMDriver(Pars &pars, unsigned n_states, unsi
   vt_dptable(0),
   true_path(0),
   path_out(0),
-  iterations(2)
+  iterations(10)
 {
 }
 //----------------------------------------------------------------------------------------
@@ -66,7 +75,6 @@ void HMMDriver<T_dpt, T_ne_dpt, T_bwc>::sample()
   } while ((true_path->size() - 1) < 1/pars.tau);            // We don't want short sequences
   cout << setw(25) << (true_path->size() - 1) << " throws" << endl;
   for (unsigned is=0; is<n_states; is++) ne_state_ids[is] = ne_dptable->getStateId(is);
-  const char *nukes = "ACGT"; // surely this is defined somewhere else? can't find it
   for (unsigned is=0; is<true_path->size(); is++) {
     assert(ne_state_ids.find(true_path->toState(is)) != ne_state_ids.end());
     string stateStr = ne_state_ids[true_path->toState(is)];
@@ -104,6 +112,7 @@ void HMMDriver<T_dpt, T_ne_dpt, T_bwc>::estimate()
        << setw(12) << "gamma1"
        << setw(12) << "gamma2"
        << endl;
+  pars.gamma1 = 0;
   for (unsigned iter=1; iter<=iterations; ++iter) {
     bfloat fw = Forward(&fw_dptable, pars.tau, pars.gamma1, pars.gamma2, sampled_seq, emit_probs_1, emit_probs_2); // calculate the forward DP table
     // calculate the Baum-Welch estimated transition counts
@@ -115,33 +124,27 @@ void HMMDriver<T_dpt, T_ne_dpt, T_bwc>::estimate()
       << setw(12) << pars.gamma1
       << setw(12) << pars.gamma2
       << endl;
+
+    // print the emission counts
+    cout << "out  " << setw(12) << "emit1" << setw(12) << "emit2" << endl;
+    for (unsigned ie=0; ie<n_letters; ++ie) {
+      cout
+	<< setw(4) << nukes[ie]
+	<< setw(12) << bw_counters->emissionBaumWelchCount1[ie][bw_counters->emissionIndex("emit1" )]
+	<< setw(12) << bw_counters->emissionBaumWelchCount1[ie][bw_counters->emissionIndex("emit2" )] << endl;
+    }
+    // print the transition counts
+    vector<string> transition_names{"trBG1","trBG2","trG1G1","trG1G2","trG2G2","trG2G1","trG1S","trG2S"};
+    map<string,double> transition_counts;
+    for (string &tname : transition_names) {
+      int tindex = bw_counters->transitionIndex(tname);
+      transition_counts[tname] = bw_counters->transitionBaumWelchCount0[tindex];
+      cout << setw(12) << tname  << setw(12) << tindex << setw(12) << transition_counts[tname] << endl;
+    }
+    pars.set_gamma1(transition_counts);
+
     delete fw_dptable;
     fw_dptable = 0;
-    // get the expected transition counts
-    cout			 
-      << setw(12) << "emit1"
-      << setw(12) << "emit2"
-      << endl;
-    for (unsigned ie=0; ie<n_letters; ++ie) {
-    cout
-      << setw(12) << bw_counters->emissionBaumWelchCount1[ie][bw_counters->emissionIndex("emit1" )]
-      << setw(12) << bw_counters->emissionBaumWelchCount1[ie][bw_counters->emissionIndex("emit2" )] << endl;
-    }
-
-      // << setw(12) << "trBG1"  << setw(12) << bw_counters->transitionIndex("trBG1" ) << setw(12) << bw_counters->transitionBaumWelchCount0[bw_counters->transitionIndex("trBG1" )] << endl
-      // << setw(12) << "trBG2"  << setw(12) << bw_counters->transitionIndex("trBG2" ) << setw(12) << bw_counters->transitionBaumWelchCount0[bw_counters->transitionIndex("trBG2" )] << endl
-      // << setw(12) << "trG1G1" << setw(12) << bw_counters->transitionIndex("trG1G1") << setw(12) << bw_counters->transitionBaumWelchCount0[bw_counters->transitionIndex("trG1G1")] << endl
-      // << setw(12) << "trG1G2" << setw(12) << bw_counters->transitionIndex("trG1G2") << setw(12) << bw_counters->transitionBaumWelchCount0[bw_counters->transitionIndex("trG1G2")] << endl
-      // << setw(12) << "trG2G2" << setw(12) << bw_counters->transitionIndex("trG2G2") << setw(12) << bw_counters->transitionBaumWelchCount0[bw_counters->transitionIndex("trG2G2")] << endl
-      // << setw(12) << "trG2G1" << setw(12) << bw_counters->transitionIndex("trG2G1") << setw(12) << bw_counters->transitionBaumWelchCount0[bw_counters->transitionIndex("trG2G1")] << endl
-      // << setw(12) << "trG1S"  << setw(12) << bw_counters->transitionIndex("trG1S" ) << setw(12) << bw_counters->transitionBaumWelchCount0[bw_counters->transitionIndex("trG1S" )] << endl
-      // << setw(12) << "trG2S"  << setw(12) << bw_counters->transitionIndex("trG2S" ) << setw(12) << bw_counters->transitionBaumWelchCount0[bw_counters->transitionIndex("trG2S" )] << endl;
-
-    // calculate the new parameters
-    // double trG1G2 = bw_counters->transitionBaumWelchCount0[ bw_counters->transitionIndex("trG1G2") ];
-    // double trG2G1 = bw_counters->transitionBaumWelchCount0[ bw_counters->transitionIndex("trG2G1") ];
-    // pars.gamma1 = trG1G2 + 0.0001;
-    // pars.gamma2 = trG2G1 + 0.0001;
   }
   delete bw_counters;
   bw_counters = 0;
@@ -227,8 +230,8 @@ int main(int argc, char** argv)
   srand(getpid());
   Pars pars;
   pars.tau = 0.01;
-  pars.gamma1 = 0.02;
-  pars.gamma2 = 0.05;
+  pars.gamma1 = 0.1;
+  pars.gamma2 = 0.1;
   unsigned n_states(4);
   unsigned n_letters(4);
   HMMDriver<SeqGenDPTable, NESeqGenDPTable, SeqGenBaumWelch> hmmd(pars, n_states, n_letters);
