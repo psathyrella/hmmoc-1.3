@@ -1,11 +1,11 @@
 <?xml version="1.0"?>
 <hml debug="true">
-<alphabet id="dice">
+<alphabet id="nucleotides">
  1234
 </alphabet>
 
 <output id="sequence">
-  <alphabet idref="dice"/>
+  <alphabet idref="nucleotides"/>
   <identifier type="length" value="iLen"/>
   <identifier type="sequence" value="aSeq"/>
   <code type="parameter" value="char *aSeq"/>
@@ -37,13 +37,13 @@
  </graph>
 
  <transitions>
-  <transition from="start" to="honest" probability="one" emission="emitHonest"/>
-  <transition from="honest" to="honest" probability="stayHonest" emission="emitHonest"/>
-  <transition from="honest" to="dishonest" probability="goDishonest" emission="emitDishonest"/>
-  <transition from="dishonest" to="dishonest" probability="stayDishonest" emission="emitDishonest"/>
-  <transition from="dishonest" to="honest" probability="goHonest" emission="emitHonest"/>
-  <transition from="honest" to="end" probability="goStop" emission="empty"/>
-  <transition from="dishonest" to="end" probability="goStop" emission="empty"/>
+  <transition from="start"     to="honest"    probability="one"           emission="honest_emission"/>
+  <transition from="honest"    to="honest"    probability="stayHonest"    emission="honest_emission"/>
+  <transition from="honest"    to="dishonest" probability="goDishonest"   emission="dishonest_emission"/>
+  <transition from="dishonest" to="dishonest" probability="stayDishonest" emission="dishonest_emission"/>
+  <transition from="dishonest" to="honest"    probability="goHonest"      emission="honest_emission"/>
+  <transition from="honest"    to="end"       probability="goStop"        emission="empty"/>
+  <transition from="dishonest" to="end"       probability="goStop"        emission="empty"/>
  </transitions>
 
  <code id="paramsClassDef" where="classdefinitions">
@@ -53,8 +53,8 @@
        double iGoHonest;
        double iGoDishonest;
        double iGoStop;
-       vector<double> aEmitHonest;
-       vector<double> aEmitDishonest;
+       vector<double> honest_emission_probs;
+       vector<double> dishonest_emission_probs;
      };
    ]]>
   </code>
@@ -65,27 +65,27 @@
    </probability>
   </emission>
 
-  <emission id="emitHonest">
+  <emission id="honest_emission">
    <output idref="sequence"/>
    <probability>
     <code type="statement">
      <identifier output="sequence" value="iEmission"/>
      <identifier type="result" value="iProb"/>
      <![CDATA[
-       iProb = iPar.aEmitHonest[ iEmission - '1' ];
+       iProb = iPar.honest_emission_probs[ iEmission - '1' ];
      ]]>
     </code>
    </probability>
   </emission>
 
-  <emission id="emitDishonest">
+  <emission id="dishonest_emission">
    <output idref="sequence"/>
    <probability>
     <code type="statement">
      <identifier output="sequence" value="iEmission"/>
      <identifier type="result" value="iProb"/>
      <![CDATA[
-       iProb = iPar.aEmitDishonest[ iEmission - '1' ];
+       iProb = iPar.dishonest_emission_probs[ iEmission - '1' ];
      ]]>
     </code>
    </probability>
@@ -129,13 +129,13 @@
  </graph>
 
  <transitions>
-  <transition from="NEstart" to="NEhonest" probability="one" emission="NEempty"/>
-  <transition from="NEhonest" to="NEhonest" probability="stayHonest" emission="NEempty"/>
-  <transition from="NEhonest" to="NEdishonest" probability="goDishonest" emission="NEempty"/>
+  <transition from="NEstart"     to="NEhonest"    probability="one"           emission="NEempty"/>
+  <transition from="NEhonest"    to="NEhonest"    probability="stayHonest"    emission="NEempty"/>
+  <transition from="NEhonest"    to="NEdishonest" probability="goDishonest"   emission="NEempty"/>
   <transition from="NEdishonest" to="NEdishonest" probability="stayDishonest" emission="NEempty"/>
-  <transition from="NEdishonest" to="NEhonest" probability="goHonest" emission="NEempty"/>
-  <transition from="NEhonest" to="NEend" probability="goStop" emission="NEempty"/>
-  <transition from="NEdishonest" to="NEend" probability="goStop" emission="NEempty"/>
+  <transition from="NEdishonest" to="NEhonest"    probability="goHonest"      emission="NEempty"/>
+  <transition from="NEhonest"    to="NEend"       probability="goStop"        emission="NEempty"/>
+  <transition from="NEdishonest" to="NEend"       probability="goStop"        emission="NEempty"/>
  </transitions>
 
  <emission id="NEempty">

@@ -6,10 +6,14 @@
 //----------------------------------------------------------------------------------------
 // make sure probabilities sum to 1
 void check_probabilities(const vector<double> probs) {
+  double eps(1e-10); // Arbitrary! Not sure what the effect of non-unit sum is, actually.
   double total(0.0);
   for (unsigned ip=0; ip<probs.size(); ip++)
     total += probs[ip];
-  assert(total == 1.0);
+  if (fabs(total-1.0) > eps) {
+    printf("ERROR: %20.20f\n",total);
+    assert(0);
+  }
 }
 //----------------------------------------------------------------------------------------
 int main(void) {
@@ -20,12 +24,12 @@ int main(void) {
   pars.iGoHonest = 0.02;
   pars.iGoDishonest = 0.05;
   pars.iGoStop = 0.01;
-  pars.aEmitHonest = {0.1, 0.1, 0.4, 0.4};
-  pars.aEmitDishonest = {0.1, 0.4, 0.1, 0.4};
-  assert(n_letters == pars.aEmitHonest.size());
-  assert(n_letters == pars.aEmitDishonest.size());
-  check_probabilities(pars.aEmitHonest);
-  check_probabilities(pars.aEmitDishonest);
+  pars.honest_emission_probs = {0.1, 0.1, 0.1, 0.7};
+  pars.dishonest_emission_probs = {0.3, 0.3, 0.3, 0.1};
+  assert(n_letters == pars.honest_emission_probs.size());
+  assert(n_letters == pars.dishonest_emission_probs.size());
+  check_probabilities(pars.honest_emission_probs);
+  check_probabilities(pars.dishonest_emission_probs);
 
   // Sample a path.  This uses the HMM that does not emit symbols, because we want to sample from the HMM
   // itself, not conditional on an output sequence.
@@ -41,6 +45,7 @@ int main(void) {
 
   // Next, build an input emission sequence by sampling the emitted symbols according to true path
   char* aSequence = new char[ iPathLength ];
+  string nukes("1234");
   for (int i=0; i<iPathLength; i++) {
     double iP = random() / (double)RAND_MAX;
     int iSymbol = -1;
@@ -49,34 +54,35 @@ int main(void) {
       double iCurrentP;
       iSymbol += 1;
       if (pDPNE->getStateId(pTruePath->toState(i)) == "NEhonest") {
-	iCurrentP = pars.aEmitHonest[iSymbol];
+	iCurrentP = pars.honest_emission_probs[iSymbol];
       } else if (pDPNE->getStateId(pTruePath->toState(i)) == "NEdishonest") {
-	iCurrentP = pars.aEmitDishonest[iSymbol];
+	iCurrentP = pars.dishonest_emission_probs[iSymbol];
       } else assert(0);
       iP -= iCurrentP;
     } while (iP > 0.0);
 
     // Add symbol to sequence
-    aSequence[i] = iSymbol + '1';
+    // aSequence[i] = iSymbol + '1';
+    aSequence[i] = nukes[iSymbol];
   }
 
-  // Decode the emission sequence using Viterbi, and compute posteriors and Baum Welch counts using Forward and Backward
+  // Decode the emission sequence using Viterbi, and compute posteriors and
+  // Baum Welch counts using Forward and Backward
   CasinoDPTable *pFWDP(0), *pBWDP(0);
   CasinoBaumWelch bw;
   cout << setw(22) << "forward probability:";
-  bfloat iFWProb = Forward(&pFWDP, pars, aSequence, iPathLength );
+  bfloat iFWProb = Forward(&pFWDP, pars, aSequence, iPathLength);
   cout << setw(12) << iFWProb << endl;
   cout << setw(22) << "backward probability: ";
-  bfloat iBWProb = Backward(bw, pFWDP, &pBWDP, pars, aSequence, iPathLength );
+  bfloat iBWProb = Backward(bw, pFWDP, &pBWDP, pars, aSequence, iPathLength);
   cout << setw(12) << iBWProb << endl;
 
   cout << "Baum Welch emission counts:"<<endl;
   cout << setw(12) << " " << setw(12) << "Honest" << setw(12) << "Dishonest" << endl;
   for (unsigned i=0; i<n_letters; i++) {
     cout << setw(12) << i
-// ???	 << setw(12) << "emitHonest"  << setw(12) << bw_counters->emissionIndex("emitHonest" ) << setw(12) << bw_counters->emissionBaumWelchCount0[bw_counters->emissionIndex("emitHonest" )] << endl
-	 << setw(12) << bw.emissionBaumWelchCount1[i][ bw.emissionIndex("emitHonest") ]
-	 << setw(12) << bw.emissionBaumWelchCount1[i][ bw.emissionIndex("emitDishonest") ]
+	 << setw(12) << bw.emissionBaumWelchCount1[i][ bw.emissionIndex("honest_emission") ]
+	 << setw(12) << bw.emissionBaumWelchCount1[i][ bw.emissionIndex("dishonest_emission") ]
 	 << endl;
   }
 

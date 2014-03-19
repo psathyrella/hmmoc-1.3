@@ -5,8 +5,9 @@ aligner: main.cc aligner.cc aligner.h algebras.cc algebras.h dptables.h mybandin
 
 aligner.cc aligner.h: aligner.xml
 	../../bin/hmmoc aligner.xml
-	../../bin/use-unused-vars.sh aligner.cc CurStateMemoryNEblock1To CurStateMemoryNEblock2To CurStateMemoryNEblock3To iPrevSlowCoord CurStateMemoryblock1To
 	rm -f algebras.h~
+	../../bin/use-unused-vars.sh aligner.cc CurStateMemoryNEblock1To CurStateMemoryNEblock2To CurStateMemoryNEblock3To iPrevSlowCoord CurStateMemoryblock1To
+	../../bin/replace-strings aligner.cc aligner.h
 
 algebras.cc algebras.h dptables.h:
 	cp ../../include/* .

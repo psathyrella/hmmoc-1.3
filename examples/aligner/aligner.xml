@@ -1,6 +1,5 @@
 <?xml version="1.0"?>
-<hml debug="yes">
-<author> Gerton Lunter </author>
+<hml debug="no">
 
 <alphabet id="nucleotides">
  ACGT
@@ -40,56 +39,57 @@
 
 <code id="initialise2" type="statement">
   <code type="parameter"> double tau </code>    <!-- length parameter -->
-  <code type="parameter"> double gamma1 </code> <!-- rate G1 to G2 -->
-  <code type="parameter"> double gamma2 </code> <!-- rate G2 to G1 -->
+  <code type="parameter"> double go_dishonest </code> <!-- rate G1 to G2 -->
+  <code type="parameter"> double go_honest </code> <!-- rate G2 to G1 -->
   <![CDATA[
 
   map<string,double> m_trans; // transition matrix
-  m_trans["BG1"]  = 1;
-  m_trans["BG2"]  = 0;
-  m_trans["G1G1"] = 1 - gamma1 - tau;
-  m_trans["G1G2"] = gamma1;
-  m_trans["G2G2"] = 1 - gamma2 - tau;
-  m_trans["G2G1"] = gamma2;
-  m_trans["G1S"]  = tau;
-  m_trans["G2S"]  = tau;
+  m_trans["b_h"]  = 1;
+  m_trans["b_d"]  = 0;
+  m_trans["h_h"] = 1 - go_dishonest - tau;
+  m_trans["h_d"] = go_dishonest;
+  m_trans["d_d"] = 1 - go_honest - tau;
+  m_trans["d_h"] = go_honest;
+  m_trans["h_s"]  = tau;
+  m_trans["d_s"]  = tau;
 
   ]]>
 </code>
 
-<!-- <probability id="one"><code> 1.0 </code></probability> -->
-<probability id="emissionProb1">
+<!-- NOTE: hmmoc's parser barfs on the comma in map<string, vector<double> >, so I sed through and  -->
+<!-- replace the XcommaX later (see makefile). TODO fix that shit. -->
+<probability id="honest_emission_prob">
   <code type="statement" init="initialise1">
     <identifier output="sequence" value="iSymb"/>
     <identifier type="result" value="iPP"/>
-    <code type="parameter"> <![CDATA[ vector<double> emit_probs_1 ]]> </code>
+    <code type="parameter"> <![CDATA[ map<stringXcommaXvector<double> > emission_probs ]]> </code>
     <![CDATA[
-      iPP = emit_probs_1[ iTranslate[ iSymb ] ];
+      iPP = emission_probs["honest"][ iTranslate[ iSymb ] ];
     ]]>
   </code>
 </probability>
-<probability id="emissionProb2">
+<probability id="dishonest_emission_prob">
   <code type="statement" init="initialise1">
     <identifier output="sequence" value="iSymb"/>
     <identifier type="result" value="iPP"/>
-    <code type="parameter"> <![CDATA[ vector<double> emit_probs_2 ]]> </code>
+    <code type="parameter"> <![CDATA[ map<stringXcommaXvector<double> > emission_probs ]]> </code>
     <![CDATA[
-      iPP = emit_probs_2[ iTranslate[ iSymb ] ];
+      iPP = emission_probs["dishonest"][ iTranslate[ iSymb ] ];
     ]]>
   </code>
 </probability>
 
-<probability id="probBG1"><code  type="expression" init="initialise2"> m_trans["BG1"]  </code></probability>
-<probability id="probBG2"><code  type="expression" init="initialise2"> m_trans["BG2"]  </code></probability>
-<probability id="probG1G1"><code type="expression" init="initialise2"> m_trans["G1G1"] </code></probability>
-<probability id="probG1G2"><code type="expression" init="initialise2"> m_trans["G1G2"] </code></probability>
-<probability id="probG2G2"><code type="expression" init="initialise2"> m_trans["G2G2"] </code></probability>
-<probability id="probG2G1"><code type="expression" init="initialise2"> m_trans["G2G1"] </code></probability>
-<probability id="probG1S"><code  type="expression" init="initialise2"> m_trans["G1S"]  </code></probability>
-<probability id="probG2S"><code  type="expression" init="initialise2"> m_trans["G2S"]  </code></probability>
+<probability id="prob_b_h"><code type="expression" init="initialise2"> m_trans["b_h"] </code></probability>
+<probability id="prob_b_d"><code type="expression" init="initialise2"> m_trans["b_d"] </code></probability>
+<probability id="prob_h_h"><code type="expression" init="initialise2"> m_trans["h_h"] </code></probability>
+<probability id="prob_h_d"><code type="expression" init="initialise2"> m_trans["h_d"] </code></probability>
+<probability id="prob_d_d"><code type="expression" init="initialise2"> m_trans["d_d"] </code></probability>
+<probability id="prob_d_h"><code type="expression" init="initialise2"> m_trans["d_h"] </code></probability>
+<probability id="prob_h_s"><code type="expression" init="initialise2"> m_trans["h_s"] </code></probability>
+<probability id="prob_d_s"><code type="expression" init="initialise2"> m_trans["d_s"] </code></probability>
 
 <hmm id="SeqGen">
- <description> random sequence generator </description>
+ <description> random sequence genera	tor </description>
  <outputs id="outputs">
   <output idref="sequence"/>
  </outputs>
@@ -97,8 +97,8 @@
   <state id="begin"/>
  </clique>
  <clique id="block2">
-  <state id="generate1"/>
-  <state id="generate2"/>
+  <state id="honest"/>
+  <state id="dishonest"/>
  </clique>
  <clique id="block3">
   <state id="stop"/>
@@ -109,13 +109,13 @@
   <clique idref="block3"/>
  </graph>
 
-  <emission id="emit1">
+  <emission id="honest_emission">
    <output idref="sequence"/>
-   <probability idref="emissionProb1"/>
+   <probability idref="honest_emission_prob"/>
   </emission>
-  <emission id="emit2">
+  <emission id="dishonest_emission">
    <output idref="sequence"/>
-   <probability idref="emissionProb2"/>
+   <probability idref="dishonest_emission_prob"/>
   </emission>
   <emission id="empty">
    <probability>
@@ -124,14 +124,14 @@
   </emission>
 
   <transitions id="transitions">
-  <transition id="trBG1"  from="begin"     to="generate1" probability="probBG1"  emission="emit1"/>
-  <transition id="trBG2"  from="begin"     to="generate2" probability="probBG2"  emission="emit2"/>
-  <transition id="trG1G1" from="generate1" to="generate1" probability="probG1G1" emission="emit1"/>
-  <transition id="trG1G2" from="generate1" to="generate2" probability="probG1G2" emission="emit2"/>
-  <transition id="trG2G2" from="generate2" to="generate2" probability="probG2G2" emission="emit2"/>
-  <transition id="trG2G1" from="generate2" to="generate1" probability="probG2G1" emission="emit1"/>
-  <transition id="trG1S"  from="generate1" to="stop"      probability="probG1S"   emission="empty"/>
-  <transition id="trG2S"  from="generate2" to="stop"      probability="probG2S"   emission="empty"/>
+  <transition id="tr_b_h" from="begin"     to="honest"    probability="prob_b_h" emission="honest_emission"/>
+  <transition id="tr_b_d" from="begin"     to="dishonest" probability="prob_b_d" emission="dishonest_emission"/>
+  <transition id="tr_h_h" from="honest"    to="honest"    probability="prob_h_h" emission="honest_emission"/>
+  <transition id="tr_h_d" from="honest"    to="dishonest" probability="prob_h_d" emission="dishonest_emission"/>
+  <transition id="tr_d_d" from="dishonest" to="dishonest" probability="prob_d_d" emission="dishonest_emission"/>
+  <transition id="tr_d_h" from="dishonest" to="honest"    probability="prob_d_h" emission="honest_emission"/>
+  <transition id="tr_h_s" from="honest"    to="stop"      probability="prob_h_s" emission="empty"/>
+  <transition id="tr_d_s" from="dishonest" to="stop"      probability="prob_d_s" emission="empty"/>
   </transitions>
 </hmm>
 
@@ -142,8 +142,8 @@
   <state id="NEbegin"/>
  </clique>
  <clique id="NEblock2">
-  <state id="NEgenerate1"/>
-  <state id="NEgenerate2"/>
+  <state id="NEhonest"/>
+  <state id="NEdishonest"/>
  </clique>
  <clique id="NEblock3">
   <state id="NEstop"/>
@@ -161,14 +161,14 @@
   </emission>
 
   <transitions id="NEtransitions">
-  <transition from="NEbegin"     to="NEgenerate1" probability="probBG1"  emission="NEempty"/>
-  <transition from="NEbegin"     to="NEgenerate2" probability="probBG2"  emission="NEempty"/>
-  <transition from="NEgenerate1" to="NEgenerate1" probability="probG1G1" emission="NEempty"/>
-  <transition from="NEgenerate1" to="NEgenerate2" probability="probG1G2" emission="NEempty"/>
-  <transition from="NEgenerate2" to="NEgenerate2" probability="probG2G2" emission="NEempty"/>
-  <transition from="NEgenerate2" to="NEgenerate1" probability="probG2G1" emission="NEempty"/>
-  <transition from="NEgenerate1" to="NEstop"      probability="probG1S"  emission="NEempty"/>
-  <transition from="NEgenerate2" to="NEstop"      probability="probG2S"  emission="NEempty"/>
+  <transition from="NEbegin"     to="NEhonest"    probability="prob_b_h" emission="NEempty"/>
+  <transition from="NEbegin"     to="NEdishonest" probability="prob_b_d" emission="NEempty"/>
+  <transition from="NEhonest"    to="NEhonest"    probability="prob_h_h" emission="NEempty"/>
+  <transition from="NEhonest"    to="NEdishonest" probability="prob_h_d" emission="NEempty"/>
+  <transition from="NEdishonest" to="NEdishonest" probability="prob_d_d" emission="NEempty"/>
+  <transition from="NEdishonest" to="NEhonest"    probability="prob_d_h" emission="NEempty"/>
+  <transition from="NEhonest"    to="NEstop"      probability="prob_h_s" emission="NEempty"/>
+  <transition from="NEdishonest" to="NEstop"      probability="prob_d_s" emission="NEempty"/>
   </transitions>
 </hmm>
 

@@ -1,0 +1,8 @@
+#!/bin/bash
+
+for file in $*; do
+    if ! [ -f "$file" ]; then echo "file d.n.e, exiting"; exit 1; fi
+    label="comma"
+    str=","
+    sed -i "s/X${label}X/$str/g" $file
+done
