@@ -7,13 +7,7 @@
 #include <cassert>
 
 #include "HmmDriver.h"
-// // //----------------------------------------------------------------------------------------
-// // void set_go_dishonest(map<string,double> &tcounts) {
-// //   assert(tcounts.find("tr_h_d") != tcounts.end());
-// //   assert(tcounts.find("tr_h_h") != tcounts.end());
-// //   assert(tcounts.find("tr_h_s") != tcounts.end());
-// //   go_dishonest = tcounts["tr_h_d"] / (tcounts["tr_h_d"] + tcounts["tr_h_h"] + tcounts["tr_h_s"]);
-// // }
+
 //----------------------------------------------------------------------------------------
 // void readFile(istream& is, vector<pair<string,vector<char> > > &seqs) {
 //   string line;
@@ -49,7 +43,7 @@
 int main(int argc, char** argv) {
   srand(getpid());
   map<string, double> pars;
-  pars["go_stop"] = 0.0001;
+  pars["go_stop"] = 0.001;
   pars["go_dishonest"] = 0.02;
   pars["go_honest"] = 0.05;
   HmmDriver<SeqGenDPTable, NESeqGenDPTable, SeqGenBaumWelch> hmmd(pars);

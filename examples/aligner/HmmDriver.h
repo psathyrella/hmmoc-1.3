@@ -3,7 +3,9 @@
 
 #include <iomanip>
 #include <set>
+
 #include "aligner.h"
+#include "parameters.h"
 
 //----------------------------------------------------------------------------------------
 template <class T_dpt, class T_ne_dpt, class T_bwc>
@@ -17,12 +19,13 @@ public:
   void Viterbi();
   void Report();
 
+  map<string,double> pars_;
   unsigned n_states_;
-  string nukes_;
+  string alphabet_;                           // alphabet for the output sequence
   set<string> silent_states_,states_;
   vector<string> transition_names_;
-  map<string,double> pars_;
   map<string,vector<double> > emission_probs_;
+  unsigned iterations_;
   T_ne_dpt *ne_dptable_;                      // DP table for emmissionless HMM
   T_bwc *bw_counters_;                        // Baum Welch counters for regular HMM
   T_dpt *fw_dptable_,*bw_dptable_,*vt_dptable_; // DP tables for regular HMM
@@ -30,20 +33,19 @@ public:
   map<unsigned,string> state_ids_;            // (no, they're not necessarily the *#$! same)
   vector<char> sampled_seq_;                  // true (sampled) sequence
   Path *true_path_,*path_out_;                 // true (sampled) path out viterbi path
-  unsigned iterations_;
 };
 //----------------------------------------------------------------------------------------
 template <class T_dpt, class T_ne_dpt, class T_bwc>
 HmmDriver<T_dpt, T_ne_dpt, T_bwc>::HmmDriver(map<string,double> &pars):
   pars_(pars),
+  iterations_(5),
   ne_dptable_(0),
   bw_counters_(0),
   fw_dptable_(0),
   bw_dptable_(0),
   vt_dptable_(0),
   true_path_(0),
-  path_out_(0),
-  iterations_(1)
+  path_out_(0)
 {
   Init();
 }
@@ -60,7 +62,7 @@ void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Init() {
       ss >> label;
       label.erase(0,1);
       if (label == "alphabet") {
-	ss >> nukes_;
+	ss >> alphabet_;
       } else if (label == "silent_states") {
 	while (!ss.eof()) {
 	  string state;
@@ -131,7 +133,7 @@ void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Sample()  {
     unsigned ip(0);
     while (true) {
       if (prob < emission_probs_[state_str][ip]) {
-	sampled_seq_.push_back(nukes_[ip]);
+	sampled_seq_.push_back(alphabet_[ip]);
 	break;
       }
       prob -= emission_probs_[state_str][ip];
@@ -146,10 +148,12 @@ template <class T_dpt, class T_ne_dpt, class T_bwc>
 void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Estimate() {
   bw_counters_ = new T_bwc;
   cout << "parameter estimation:" << endl;
-  cout << setw(12) << "iteration" << setw(12) << "likelihood"
-       << setw(12) << "go_dishonest"
-       << setw(12) << "go_honest"
-       << endl;
+  cout << setw(12) << "iteration" << setw(12) << "likelihood";
+  for (auto &parameter : pars_) cout << setw(20) << parameter.first;
+  cout << endl;
+  cout << setw(24) << "start";
+  for (auto &parameter : pars_) cout << setw(20) << parameter.second;
+  cout << endl;
   // run <iterations_> baum welch steps
   for (unsigned iter=1; iter<=iterations_; ++iter) {
     // calculate the forward DP table
@@ -157,32 +161,29 @@ void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Estimate() {
     bw_counters_->resetCounts();
     // and the backward one
     Backward(*bw_counters_, fw_dptable_, &bw_dptable_, pars_, emission_probs_, sampled_seq_);
-    cout
-      << setw(12) << iter
-      << setw(12) << fw
-      << setw(12) << pars_["go_dishonest"]
-      << setw(12) << pars_["go_honest"]
-      << endl;
 
     // print the emission counts
-    cout << "    ";
-    for (auto &state : states_) cout << setw(12) << state;
-    cout << endl;
-    for (unsigned ie=0; ie<nukes_.size(); ++ie) {
-      cout << setw(4) << nukes_[ie];
-      for (auto &state : states_) {
-	cout << setw(12) << bw_counters_->emissionBaumWelchCount1[ie][bw_counters_->emissionIndex(state+"_emission")];
-      }
-      cout << endl;
+    // cout << "    ";
+    // for (auto &state : states_) cout << setw(12) << state;
+    // cout << endl;
+    for (unsigned ie=0; ie<alphabet_.size(); ++ie) {
+      // cout << setw(4) << alphabet_[ie];
+      // for (auto &state : states_) {
+      // 	cout << setw(12) << bw_counters_->emissionBaumWelchCount1[ie][bw_counters_->emissionIndex(state+"_emission")];
+      // }
+      // cout << endl;
     }
     // print the transition counts
     map<string,double> transition_counts;
     for (string &tname : transition_names_) {
       int tindex = bw_counters_->transitionIndex(tname);
       transition_counts[tname] = bw_counters_->transitionBaumWelchCount0[tindex];
-      cout << setw(12) << tname  << setw(12) << tindex << setw(12) << transition_counts[tname] << endl;
+      // cout << setw(12) << tname  << setw(12) << tindex << setw(12) << transition_counts[tname] << endl;
     }
-    // set_go_dishonest(transition_counts);
+    set_go_dishonest(transition_counts, &pars_);
+    cout << setw(12) << iter << setw(12) << fw;
+    for (auto &parameter : pars_) cout << setw(20) << parameter.second;
+    cout << endl;
 
     delete fw_dptable_;
     fw_dptable_ = 0;
@@ -219,14 +220,14 @@ void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Report()  {
       seqStr += sampled_seq_[is];
     }
   }
-  cout << "emitted sequence " << seqStr << endl;
-  cout << "vtb path         " << pathStr << endl;
+  // cout << "emitted sequence " << seqStr << endl;
+  // cout << "vtb path         " << pathStr << endl;
 
-  string true_path__str("");
+  string true_path_str("");
   for (unsigned is=0; is<true_path_->size(); is++) {
     assert(ne_state_ids_.find(true_path_->toState(is)) != ne_state_ids_.end());
-    true_path__str += ne_state_ids_[true_path_->toState(is)][2];// - 32; // capitalize
+    true_path_str += ne_state_ids_[true_path_->toState(is)][2];// - 32; // capitalize
   }
-  cout << "true path        " << true_path__str << endl;
+  // cout << "true path        " << true_path_str << endl;
 }
 #endif // EXAMPLES_ALIGNER_HMMDRIVER_H_
