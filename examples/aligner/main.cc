@@ -13,14 +13,15 @@
 // To be called at the end of each Baum Welch iteration to update the parameter
 // values.
 // set the values in <probs> using the info in <config> and the parameter values in <pars>
-void UpdateParameters(map<string, map<int,double> > &ecounts,
+void UpdateParameters(map<string, map<string,double> > &ecounts,
 		      map<string, map<string,double> > &tcounts,
 		      Parameters *pars) {
   // TODO: need to assert that we have all of these
+  // transitions
   pars->set_val("go_honest", tcounts["dishonest"]["honest"] / (tcounts["dishonest"]["honest"] + tcounts["dishonest"]["dishonest"] + tcounts["dishonest"]["stop"]));
   pars->set_val("go_dishonest", tcounts["honest"]["dishonest"] / (tcounts["honest"]["dishonest"] + tcounts["honest"]["honest"]       + tcounts["honest"]["stop"]));
-
-  (*pars)["go_dishonest"] = tcounts["honest"]["dishonest"] / (tcounts["honest"]["dishonest"] + tcounts["honest"]["honest"]       + tcounts["honest"]["stop"]);
+  // emissions
+  // pars->set_val("honest_0", ecounts["honest"]["0"] / (ecounts["honest"]["0"] + ecounts["honest"]["1"] + ecounts["honest"]["2"] + ecounts["honest"]["3"]));
 }
 //----------------------------------------------------------------------------------------
 // void readFile(istream& is, vector<pair<string,vector<char> > > &seqs) {

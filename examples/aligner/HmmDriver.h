@@ -11,7 +11,7 @@
 template <class T_dp_table, class T_dp_table_no_emit, class T_bw_counters>
 class HmmDriver {
 public:
-  HmmDriver(void (*update_parameters)(map<string, map<int,double> > &ecounts,
+  HmmDriver(void (*update_parameters)(map<string, map<string,double> > &ecounts,
 				      map<string, map<string,double> > &tcounts,
 				      Parameters *pars));
   void Init();
@@ -23,12 +23,13 @@ public:
 
   map<string, map<string,string> > transition_config_;       // tells us what to do with each transition
   map<string, map<string,double> > transition_probs_;
+  map<string,map<string,string> > emission_config_;
+  map<string,map<string,double> > emission_probs_;
   Parameters pars_;
   unsigned n_states_;
-  string alphabet_;                            // alphabet for the output sequence
+  vector<string> alphabet_;                            // alphabet for the output sequence
   set<string> silent_states_,states_;
   set<string> transitions_;
-  map<string,vector<double> > emission_probs_;
   unsigned iterations_;
   T_dp_table_no_emit *ne_dptable_;             // DP table for emmissionless HMM
   T_bw_counters *bw_counters_;                 // Baum Welch counters for regular HMM
@@ -38,16 +39,17 @@ public:
   vector<char> sampled_seq_;                   // true (sampled) sequence
   Path *true_path_,*path_out_;                 // true (sampled) path out viterbi path
 private:
-  void (*update_parameters_)(map<string, map<int,double> > &ecounts,
+  void (*update_parameters_)(map<string, map<string,double> > &ecounts,
 			     map<string, map<string,double> > &tcounts,
 			     Parameters *pars);
 };
 //----------------------------------------------------------------------------------------
 template <class T_dp_table, class T_dp_table_no_emit, class T_bw_counters>
-HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::HmmDriver(void (*update_parameters)(map<string, map<int,double> > &ecounts,
+HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>
+::HmmDriver(void (*update_parameters)(map<string, map<string,double> > &ecounts,
 				      map<string, map<string,double> > &tcounts,
 				      Parameters *pars)):
-  pars_(&transition_config_, &transition_probs_),
+  pars_(&transition_config_, &emission_config_, &transition_probs_, &emission_probs_),
   iterations_(5),
   ne_dptable_(0),
   bw_counters_(0),
@@ -62,7 +64,8 @@ HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::HmmDriver(void (*updat
 }
 //----------------------------------------------------------------------------------------
 template <class T_dp_table, class T_dp_table_no_emit, class T_bw_counters>
-void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::Init() {
+void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>
+::Init() {
   ifstream ifs("hmm.txt");
   string line;
   while (getline(ifs,line)) {
@@ -73,7 +76,9 @@ void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::Init() {
       ss >> config;
       config.erase(0,1);
       if (config == "alphabet") {
-	ss >> alphabet_;
+	string tmp_str;
+	ss >> tmp_str;
+	for (size_t ich=0; ich<tmp_str.size(); ++ich) alphabet_.push_back(tmp_str.substr(ich,1));
       } else if (config == "silent_states") {
 	while (!ss.eof()) {
 	  string state;
@@ -86,15 +91,25 @@ void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::Init() {
 	  ss >> state;
 	  states_.insert(state);
 	}
+      // } else if (config == "emission") {
+      // 	string state;
+      // 	ss >> state;
+      // 	assert(states_.find(state) != states_.end());
+      // 	emission_probs_[state] = map<string,double>();
+      // 	for (auto &letter : alphabet_) {
+      // 	  double prob;
+      // 	  ss >> prob;
+      // 	  emission_probs_[state][letter] = prob;
+      // 	}
       } else if (config == "emission") {
 	string state;
 	ss >> state;
 	assert(states_.find(state) != states_.end());
-	emission_probs_[state] = vector<double>();
-	while (!ss.eof()) {
-	  double prob;
-	  ss >> prob;
-	  emission_probs_[state].push_back(prob);
+	// emission_probs_[state] = map<string,double>();
+	for (auto &letter : alphabet_) {
+	  string config;
+	  ss >> config;
+	  emission_config_[state][letter] = config;
 	}
       } else if (config == "parameter") {
 	string name;
@@ -133,17 +148,18 @@ void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::Init() {
     }
   }
   ifs.close();
-  pars_.SetTransitionProbs();
+  pars_.SetProbabilities();
   n_states_ = silent_states_.size() + states_.size();
   for (auto &state : states_) { // make sure we have emission probs for each non-silent state
     assert(emission_probs_.find(state) != emission_probs_.end());
-    CheckProbabilities(emission_probs_[state]);
+    // CheckProbabilities(emission_probs_[state]);
   }
 }
 //----------------------------------------------------------------------------------------
 // make sure probabilities sum to 1
 template <class T_dp_table, class T_dp_table_no_emit, class T_bw_counters>
-void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::CheckProbabilities(const vector<double> probs) {
+void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>
+::CheckProbabilities(const vector<double> probs) {
   double eps(1e-10); // Arbitrary! Not sure what the effect of non-unit sum is, actually.
   double total(0.0);
   for (unsigned ip=0; ip<probs.size(); ip++)
@@ -155,7 +171,8 @@ void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::CheckProbabilitie
 }
 //----------------------------------------------------------------------------------------
 template <class T_dp_table, class T_dp_table_no_emit, class T_bw_counters>
-void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::Sample()  {
+void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>
+::Sample()  {
   // sample a path from the no-emission version
   cout << "sampling " << endl;
   size_t target_length(100);
@@ -176,11 +193,11 @@ void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::Sample()  {
     double prob = random() / (double)RAND_MAX;
     unsigned ip(0);
     while (true) {
-      if (prob < emission_probs_[state_str][ip]) {
-	sampled_seq_.push_back(alphabet_[ip]);
+      if (prob < emission_probs_[state_str][alphabet_[ip]]) {
+	sampled_seq_.push_back(alphabet_[ip][0]);
 	break;
       }
-      prob -= emission_probs_[state_str][ip];
+      prob -= emission_probs_[state_str][alphabet_[ip]];
       ip++;
       assert(prob>0);
     }
@@ -189,7 +206,8 @@ void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::Sample()  {
 //----------------------------------------------------------------------------------------
 // use Baum-Welch training to estimate parameters
 template <class T_dp_table, class T_dp_table_no_emit, class T_bw_counters>
-void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::Estimate() {
+void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>
+::Estimate() {
   bw_counters_ = new T_bw_counters;
   cout << "parameter estimation:" << endl;
   cout << setw(12) << "iteration" << setw(12) << "likelihood";
@@ -201,18 +219,19 @@ void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::Estimate() {
   // run <iterations_> baum welch steps
   for (unsigned iter=1; iter<=iterations_; ++iter) {
     // calculate the forward DP table
-    bfloat fw = Forward(&fw_dptable_, transition_probs_, emission_probs_, sampled_seq_);
+    bfloat fw = Forward(&fw_dptable_, emission_probs_, transition_probs_, sampled_seq_);
     bw_counters_->resetCounts();
     // and the backward one
-    Backward(*bw_counters_, fw_dptable_, &bw_dptable_, transition_probs_, emission_probs_, sampled_seq_);
+    Backward(*bw_counters_, fw_dptable_, &bw_dptable_, emission_probs_, transition_probs_, sampled_seq_);
 
     // get the emission counts (in a form that's more accessible
-    map<string,map<int,double> > emission_counts;
+    map<string,map<string,double> > emission_counts;
     for (auto &state : states_) {
       for (unsigned ie=0; ie<alphabet_.size(); ++ie) {
+	// for (auto &letter : alphabet_) {
 	int emission_index(bw_counters_->emissionIndex(state+"_emission"));
 	double count = bw_counters_->emissionBaumWelchCount1[ie][emission_index];
-	emission_counts[state+"_emission"][ie] = count;
+	emission_counts[state+"_emission"][alphabet_[ie]] = count;
       }
     }
     // and the transition counts
@@ -227,7 +246,7 @@ void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::Estimate() {
 	transition_counts[from_state][to_state] = bw_counters_->transitionBaumWelchCount0[tindex];
       }
     }
-    update_parameters_(emission_counts, transition_counts, &pars_);
+    update_parameters_(emission_counts, transition_counts, &pars_); // sets the transition and emission probs after modifying the parameters
     cout << setw(12) << iter << setw(12) << fw;
     for (auto &parameter : pars_.vals()) cout << setw(20) << parameter.second;
     cout << endl;
@@ -242,10 +261,11 @@ void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::Estimate() {
 //----------------------------------------------------------------------------------------
 // Compute a Viterbi alignment
 template <class T_dp_table, class T_dp_table_no_emit, class T_bw_counters>
-void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::Viterbi() {
+void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>
+::Viterbi() {
   cout << "viterbi recursion and traceback" << endl;
-  Viterbi_recurse(&vt_dptable_, transition_probs_, emission_probs_, sampled_seq_);
-  path_out_ = &Viterbi_trace(vt_dptable_, transition_probs_, emission_probs_, sampled_seq_);
+  Viterbi_recurse(&vt_dptable_, emission_probs_, transition_probs_, sampled_seq_);
+  path_out_ = &Viterbi_trace(vt_dptable_, emission_probs_, transition_probs_, sampled_seq_);
   // get a record of the state_id : state_str mapping (it's non-deterministic)
   for (unsigned is=0; is<n_states_; is++)
     state_ids_[is] = vt_dptable_->getStateId(is);
@@ -255,7 +275,8 @@ void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::Viterbi() {
 //----------------------------------------------------------------------------------------
 // Print the Viterbi alignment, and a summary of the posteriors
 template <class T_dp_table, class T_dp_table_no_emit, class T_bw_counters>
-void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::Report()  {
+void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>
+::Report()  {
   string seq_str(""),path_str("");
   // if they aren't the same size, we want to print to the end of the longer one
   size_t imax = max((size_t)path_out_->size(), sampled_seq_.size());

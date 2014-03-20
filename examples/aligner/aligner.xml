@@ -33,9 +33,9 @@
   <code type="statement" init="initialise1">
     <identifier output="sequence" value="iSymb"/>
     <identifier type="result" value="iPP"/>
-    <code type="parameter"> <![CDATA[ map<stringXcommaXvector<double> > emission_probs ]]> </code>
+    <code type="parameter"> <![CDATA[ map<stringXcommaXmap<stringXcommaXdouble> > emission_probs ]]> </code>
     <![CDATA[
-      iPP = emission_probs["honest"][ iSymb - '0' ]; // convert char 'n' to int n
+      iPP = emission_probs["honest"][string(1,iSymb)];
     ]]>
   </code>
 </probability>
@@ -43,9 +43,9 @@
   <code type="statement" init="initialise1">
     <identifier output="sequence" value="iSymb"/>
     <identifier type="result" value="iPP"/>
-    <code type="parameter"> <![CDATA[ map<stringXcommaXvector<double> > emission_probs ]]> </code>
+    <code type="parameter"> <![CDATA[ map<stringXcommaXmap<stringXcommaXdouble> > emission_probs ]]> </code>
     <![CDATA[
-      iPP = emission_probs["dishonest"][ iSymb - '0' ];
+      iPP = emission_probs["dishonest"][string(1,iSymb)];
     ]]>
   </code>
 </probability>
