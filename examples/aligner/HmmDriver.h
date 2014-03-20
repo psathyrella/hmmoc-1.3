@@ -23,7 +23,7 @@ public:
   unsigned n_states_;
   string alphabet_;                           // alphabet for the output sequence
   set<string> silent_states_,states_;
-  vector<string> transition_names_;
+  set<string> transitions_;
   map<string,vector<double> > emission_probs_;
   unsigned iterations_;
   T_ne_dpt *ne_dptable_;                      // DP table for emmissionless HMM
@@ -76,11 +76,11 @@ void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Init() {
 	  states_.insert(state);
 	}
       } else if (label == "transitions") {
-	while (!ss.eof()) {
-	  string trans;
-	  ss >> trans;
-	  transition_names_.push_back("tr_"+trans);
-	}
+      	while (!ss.eof()) {
+      	  string trans;
+      	  ss >> trans;
+      	  transitions_.insert(trans);
+      	}
       } else {
 	assert(silent_states_.find(label) != silent_states_.end() ||
 	       states_.find(label) != states_.end());
@@ -151,7 +151,7 @@ void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Estimate() {
   cout << setw(12) << "iteration" << setw(12) << "likelihood";
   for (auto &parameter : pars_) cout << setw(20) << parameter.first;
   cout << endl;
-  cout << setw(24) << "start";
+  cout << setw(24) << " ";
   for (auto &parameter : pars_) cout << setw(20) << parameter.second;
   cout << endl;
   // run <iterations_> baum welch steps
@@ -162,25 +162,28 @@ void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Estimate() {
     // and the backward one
     Backward(*bw_counters_, fw_dptable_, &bw_dptable_, pars_, emission_probs_, sampled_seq_);
 
-    // print the emission counts
-    // cout << "    ";
-    // for (auto &state : states_) cout << setw(12) << state;
-    // cout << endl;
-    for (unsigned ie=0; ie<alphabet_.size(); ++ie) {
-      // cout << setw(4) << alphabet_[ie];
-      // for (auto &state : states_) {
-      // 	cout << setw(12) << bw_counters_->emissionBaumWelchCount1[ie][bw_counters_->emissionIndex(state+"_emission")];
-      // }
-      // cout << endl;
+    // get the emission counts (in a form that's more accessible
+    map<string,map<int,double> > emission_counts;
+    for (auto &state : states_) {
+      for (unsigned ie=0; ie<alphabet_.size(); ++ie) {
+	int emission_index(bw_counters_->emissionIndex(state+"_emission"));
+	double count = bw_counters_->emissionBaumWelchCount1[ie][emission_index];
+	emission_counts[state+"_emission"][ie] = count;
+      }
     }
-    // print the transition counts
-    map<string,double> transition_counts;
-    for (string &tname : transition_names_) {
-      int tindex = bw_counters_->transitionIndex(tname);
-      transition_counts[tname] = bw_counters_->transitionBaumWelchCount0[tindex];
-      // cout << setw(12) << tname  << setw(12) << tindex << setw(12) << transition_counts[tname] << endl;
+    // and the transition counts
+    map<string, map<string,double> > transition_counts;
+    set<string> all_states(silent_states_);
+    all_states.insert(states_.begin(), states_.end());
+    for (auto &from_state : all_states) {
+      for (auto &to_state : all_states) {
+	if(transitions_.find(from_state+"_"+to_state) == transitions_.end())
+	  continue; // disallowed transition
+	int tindex = bw_counters_->transitionIndex(from_state+"_"+to_state);
+	transition_counts[from_state][to_state] = bw_counters_->transitionBaumWelchCount0[tindex];
+      }
     }
-    set_go_dishonest(transition_counts, &pars_);
+    update_parameters(emission_counts, transition_counts, &pars_);
     cout << setw(12) << iter << setw(12) << fw;
     for (auto &parameter : pars_) cout << setw(20) << parameter.second;
     cout << endl;
@@ -208,20 +211,20 @@ void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Viterbi() {
 // Print the Viterbi alignment, and a summary of the posteriors
 template <class T_dpt, class T_ne_dpt, class T_bwc>
 void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Report()  {
-  string seqStr(""),pathStr("");
+  string seq_str(""),path_str("");
   // if they aren't the same size, we want to print to the end of the longer one
   size_t imax = max((size_t)path_out_->size(), sampled_seq_.size());
   for (size_t is=0; is<imax; is++) {
     if (is < path_out_->size()) {
       assert(state_ids_.find(path_out_->toState(is)) != state_ids_.end());
-      pathStr += state_ids_[path_out_->toState(is)][0];// - 32; // capitalize for readibility
+      path_str += state_ids_[path_out_->toState(is)][0];// - 32; // capitalize for readibility
     }
     if (is < sampled_seq_.size()) {
-      seqStr += sampled_seq_[is];
+      seq_str += sampled_seq_[is];
     }
   }
-  // cout << "emitted sequence " << seqStr << endl;
-  // cout << "vtb path         " << pathStr << endl;
+  // cout << "emitted sequence " << seq_str << endl;
+  // cout << "vtb path         " << path_str << endl;
 
   string true_path_str("");
   for (unsigned is=0; is<true_path_->size(); is++) {
@@ -229,5 +232,17 @@ void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Report()  {
     true_path_str += ne_state_ids_[true_path_->toState(is)][2];// - 32; // capitalize
   }
   // cout << "true path        " << true_path_str << endl;
+
+  // count the fraction which were correct
+  int n_correct(0);
+  for (size_t is=0; is<path_str.size(); ++is) {
+    if(true_path_str.size() <= is) { cout << "not the same length" << endl; assert(0); }
+    if (path_str[is] == true_path_str[is])
+      ++n_correct;
+  }
+  cout << "correct: "
+       << setw(12) << n_correct << " / " << path_str.size()
+       << " = " << (double(n_correct) / path_str.size()) << endl;
+  
 }
 #endif // EXAMPLES_ALIGNER_HMMDRIVER_H_
