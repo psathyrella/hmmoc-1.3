@@ -22,25 +22,14 @@
 </code>
 
 <code id="initialise2" type="statement">
-  <code type="parameter"> <![CDATA[ map<stringXcommaXdouble> pars ]]> </code>
-  <![CDATA[
-
-  map<string,double> m_trans; // transition matrix
-  m_trans["begin_honest"] = 1;
-  m_trans["begin_dishonest"] = 0;
-  m_trans["honest_honest"] = 1 - pars["go_dishonest"] - pars["go_stop"];
-  m_trans["honest_dishonest"] = pars["go_dishonest"];
-  m_trans["dishonest_dishonest"] = 1 - pars["go_honest"] - pars["go_stop"];
-  m_trans["dishonest_honest"] = pars["go_honest"];
-  m_trans["honest_stop"] = pars["go_stop"];
-  m_trans["dishonest_stop"] = pars["go_stop"];
-
-  ]]>
+  <code type="parameter"> <![CDATA[
+    map<stringXcommaXmap<stringXcommaXdouble> > transition_probs
+  ]]> </code>
 </code>
 
 <!-- NOTE: hmmoc's parser barfs on the comma in map<string, vector<double> >, so I sed through and  -->
 <!-- replace the XcommaX later (see makefile). TODO fix that shit. -->
-<probability id="honest_emission_prob">
+ <probability id="honest_emission_prob">
   <code type="statement" init="initialise1">
     <identifier output="sequence" value="iSymb"/>
     <identifier type="result" value="iPP"/>
@@ -61,17 +50,17 @@
   </code>
 </probability>
 
-<probability id="prob_begin_honest">		<code type="expression" init="initialise2"> m_trans["begin_honest"]	  </code></probability>
-<probability id="prob_begin_dishonest">		<code type="expression" init="initialise2"> m_trans["begin_dishonest"]	  </code></probability>
-<probability id="prob_honest_honest">		<code type="expression" init="initialise2"> m_trans["honest_honest"]	  </code></probability>
-<probability id="prob_honest_dishonest">	<code type="expression" init="initialise2"> m_trans["honest_dishonest"]	  </code></probability>
-<probability id="prob_dishonest_dishonest">	<code type="expression" init="initialise2"> m_trans["dishonest_dishonest"]</code></probability>
-<probability id="prob_dishonest_honest">	<code type="expression" init="initialise2"> m_trans["dishonest_honest"]	  </code></probability>
-<probability id="prob_honest_stop">		<code type="expression" init="initialise2"> m_trans["honest_stop"]	  </code></probability>
-<probability id="prob_dishonest_stop">		<code type="expression" init="initialise2"> m_trans["dishonest_stop"]	  </code></probability>
+<probability id="prob_begin_honest">	    <code type="expression" init="initialise2"> transition_probs["begin"]["honest"]	  </code></probability>
+<probability id="prob_begin_dishonest">	    <code type="expression" init="initialise2"> transition_probs["begin"]["dishonest"]	  </code></probability>
+<probability id="prob_honest_honest">	    <code type="expression" init="initialise2"> transition_probs["honest"]["honest"]	  </code></probability>
+<probability id="prob_honest_dishonest">    <code type="expression" init="initialise2"> transition_probs["honest"]["dishonest"]	  </code></probability>
+<probability id="prob_dishonest_dishonest"> <code type="expression" init="initialise2"> transition_probs["dishonest"]["dishonest"]</code></probability>
+<probability id="prob_dishonest_honest">    <code type="expression" init="initialise2"> transition_probs["dishonest"]["honest"]	  </code></probability>
+<probability id="prob_honest_stop">	    <code type="expression" init="initialise2"> transition_probs["honest"]["stop"]	  </code></probability>
+<probability id="prob_dishonest_stop">	    <code type="expression" init="initialise2"> transition_probs["dishonest"]["stop"]	  </code></probability>
 
 <hmm id="SeqGen">
- <description> random sequence genera	tor </description>
+ <description> random sequence generator </description>
  <outputs id="outputs">
   <output idref="sequence"/>
  </outputs>

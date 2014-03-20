@@ -1,7 +1,19 @@
 ^alphabet 0123
 ^silent_states begin stop
 ^states honest dishonest
+# ordering is set by order in alphabet above
+^emission honest    0.1 0.1 0.1 0.7
+^emission dishonest 0.3 0.3 0.3 0.1
 # set of non-zero transitions
-^transitions begin_honest begin_dishonest honest_honest honest_dishonest dishonest_dishonest dishonest_honest honest_stop dishonst_stop
-^honest    0.1 0.1 0.1 0.7
-^dishonest 0.3 0.3 0.3 0.1
+#^transitions begin_honest begin_dishonest honest_honest honest_dishonest dishonest_dishonest dishonest_honest honest_stop dishonst_stop
+^parameter go_honest    0.05
+^parameter go_dishonest 0.02
+# if present, go_stop is used by default as the inverse sampling length
+^parameter go_stop      0.001
+# *from* left *to* top (don't put a comment line after here a.t.m.)
+^transition_config
+           begin   honest     dishonest       stop
+begin        x       1            x            x
+honest       x      $auto     $go_dishonest  $go_stop
+dishonest    x    $go_honest     $auto       $go_stop
+stop         x       x            x            x

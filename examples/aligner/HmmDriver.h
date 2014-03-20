@@ -5,13 +5,15 @@
 #include <set>
 
 #include "aligner.h"
-#include "parameters.h"
+#include "Parameters.h"
 
 //----------------------------------------------------------------------------------------
-template <class T_dpt, class T_ne_dpt, class T_bwc>
+template <class T_dp_table, class T_dp_table_no_emit, class T_bw_counters>
 class HmmDriver {
 public:
-  HmmDriver(map<string,double> &pars);
+  HmmDriver(void (*update_parameters)(map<string, map<int,double> > &ecounts,
+				      map<string, map<string,double> > &tcounts,
+				      Parameters *pars));
   void Init();
   void CheckProbabilities(const vector<double> probs);
   void Sample();
@@ -19,25 +21,33 @@ public:
   void Viterbi();
   void Report();
 
-  map<string,double> pars_;
+  map<string, map<string,string> > transition_config_;       // tells us what to do with each transition
+  map<string, map<string,double> > transition_probs_;
+  Parameters pars_;
   unsigned n_states_;
-  string alphabet_;                           // alphabet for the output sequence
+  string alphabet_;                            // alphabet for the output sequence
   set<string> silent_states_,states_;
   set<string> transitions_;
   map<string,vector<double> > emission_probs_;
   unsigned iterations_;
-  T_ne_dpt *ne_dptable_;                      // DP table for emmissionless HMM
-  T_bwc *bw_counters_;                        // Baum Welch counters for regular HMM
-  T_dpt *fw_dptable_,*bw_dptable_,*vt_dptable_; // DP tables for regular HMM
-  map<unsigned,string> ne_state_ids_;         // state ID translators for emmissionless and regular HMM
-  map<unsigned,string> state_ids_;            // (no, they're not necessarily the *#$! same)
-  vector<char> sampled_seq_;                  // true (sampled) sequence
+  T_dp_table_no_emit *ne_dptable_;             // DP table for emmissionless HMM
+  T_bw_counters *bw_counters_;                 // Baum Welch counters for regular HMM
+  T_dp_table *fw_dptable_,*bw_dptable_,*vt_dptable_; // DP tables for regular HMM
+  map<unsigned,string> ne_state_ids_;          // state ID translators for emmissionless and regular HMM
+  map<unsigned,string> state_ids_;             // (no, they're not necessarily the *#$! same)
+  vector<char> sampled_seq_;                   // true (sampled) sequence
   Path *true_path_,*path_out_;                 // true (sampled) path out viterbi path
+private:
+  void (*update_parameters_)(map<string, map<int,double> > &ecounts,
+			     map<string, map<string,double> > &tcounts,
+			     Parameters *pars);
 };
 //----------------------------------------------------------------------------------------
-template <class T_dpt, class T_ne_dpt, class T_bwc>
-HmmDriver<T_dpt, T_ne_dpt, T_bwc>::HmmDriver(map<string,double> &pars):
-  pars_(pars),
+template <class T_dp_table, class T_dp_table_no_emit, class T_bw_counters>
+HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::HmmDriver(void (*update_parameters)(map<string, map<int,double> > &ecounts,
+				      map<string, map<string,double> > &tcounts,
+				      Parameters *pars)):
+  pars_(&transition_config_, &transition_probs_),
   iterations_(5),
   ne_dptable_(0),
   bw_counters_(0),
@@ -45,54 +55,85 @@ HmmDriver<T_dpt, T_ne_dpt, T_bwc>::HmmDriver(map<string,double> &pars):
   bw_dptable_(0),
   vt_dptable_(0),
   true_path_(0),
-  path_out_(0)
+  path_out_(0),
+  update_parameters_(update_parameters)
 {
   Init();
 }
 //----------------------------------------------------------------------------------------
-template <class T_dpt, class T_ne_dpt, class T_bwc>
-void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Init() {
+template <class T_dp_table, class T_dp_table_no_emit, class T_bw_counters>
+void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::Init() {
   ifstream ifs("hmm.txt");
   string line;
   while (getline(ifs,line)) {
     stringstream ss(line);
     if(line[0] == '#') continue; // comments
     if(line[0] == '^') {
-      string label;
-      ss >> label;
-      label.erase(0,1);
-      if (label == "alphabet") {
+      string config;
+      ss >> config;
+      config.erase(0,1);
+      if (config == "alphabet") {
 	ss >> alphabet_;
-      } else if (label == "silent_states") {
+      } else if (config == "silent_states") {
 	while (!ss.eof()) {
 	  string state;
 	  ss >> state;
 	  silent_states_.insert(state);
 	}
-      } else if (label == "states") {
+      } else if (config == "states") {
 	while (!ss.eof()) {
 	  string state;
 	  ss >> state;
 	  states_.insert(state);
 	}
-      } else if (label == "transitions") {
-      	while (!ss.eof()) {
-      	  string trans;
-      	  ss >> trans;
-      	  transitions_.insert(trans);
-      	}
-      } else {
-	assert(silent_states_.find(label) != silent_states_.end() ||
-	       states_.find(label) != states_.end());
-	emission_probs_[label] = vector<double>();
+      } else if (config == "emission") {
+	string state;
+	ss >> state;
+	assert(states_.find(state) != states_.end());
+	emission_probs_[state] = vector<double>();
 	while (!ss.eof()) {
 	  double prob;
 	  ss >> prob;
-	  emission_probs_[label].push_back(prob);
+	  emission_probs_[state].push_back(prob);
 	}
+      } else if (config == "parameter") {
+	string name;
+	double value;
+	ss >> name >> value;
+	pars_.add_val(name,value);
+      } else if (config == "transition_config") {
+	// first read in the 'to' states along the top row
+	getline(ifs,line);
+	stringstream ss2(line);
+	vector<string> to_states;
+      	while (!ss2.eof()) {
+	  string to_state;
+	  ss2 >> to_state; // should really assert that the state was already read above
+	  to_states.push_back(to_state);
+	}
+	// then read a line for each 'from' state
+	while (getline(ifs,line)) { // has to be at the end of the file a.t.m.
+	  if(line[0]=='#') continue;
+	  stringstream ss3(line);
+	  string from_state;
+	  ss3 >> from_state;
+	  int i_to_state(0);
+	  while (!ss3.eof()) {
+	    string to_state(to_states[i_to_state++]);
+	    string prob_code;
+	    ss3 >> prob_code;
+	    transition_config_[from_state][to_state] = prob_code;
+	    if(prob_code != "x") // add the allowed ones to transitions_
+	      transitions_.insert(from_state+"_"+to_state);
+	  }
+	}
+      } else {
+	assert(0);
       }
     }
   }
+  ifs.close();
+  pars_.SetTransitionProbs();
   n_states_ = silent_states_.size() + states_.size();
   for (auto &state : states_) { // make sure we have emission probs for each non-silent state
     assert(emission_probs_.find(state) != emission_probs_.end());
@@ -101,8 +142,8 @@ void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Init() {
 }
 //----------------------------------------------------------------------------------------
 // make sure probabilities sum to 1
-template <class T_dpt, class T_ne_dpt, class T_bwc>
-void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::CheckProbabilities(const vector<double> probs) {
+template <class T_dp_table, class T_dp_table_no_emit, class T_bw_counters>
+void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::CheckProbabilities(const vector<double> probs) {
   double eps(1e-10); // Arbitrary! Not sure what the effect of non-unit sum is, actually.
   double total(0.0);
   for (unsigned ip=0; ip<probs.size(); ip++)
@@ -113,14 +154,17 @@ void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::CheckProbabilities(const vector<double> 
   }
 }
 //----------------------------------------------------------------------------------------
-template <class T_dpt, class T_ne_dpt, class T_bwc>
-void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Sample()  {
+template <class T_dp_table, class T_dp_table_no_emit, class T_bw_counters>
+void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::Sample()  {
   // sample a path from the no-emission version
   cout << "sampling " << endl;
+  size_t target_length(100);
+  if (pars_.vals().find("go_stop") != pars_.vals().end())
+    target_length = 1.0 / pars_.vals()["go_stop"];
   do {
-    NEBackward(&ne_dptable_, pars_);           // Initialize the DP table using the Backward algorithm
-    true_path_ = &NESample(ne_dptable_, pars_); // Sample
-  } while ((true_path_->size() - 1) < 1/pars_["go_stop"]);            // We don't want short sequences
+    NEBackward(&ne_dptable_, transition_probs_);           // Initialize the DP table using the Backward algorithm
+    true_path_ = &NESample(ne_dptable_, transition_probs_); // Sample
+  } while ((true_path_->size() - 1) < target_length);            // We don't want short sequences
   // get a record of the state_id : state_str mapping (it's non-deterministic)
   for (unsigned is=0; is<n_states_; is++) ne_state_ids_[is] = ne_dptable_->getStateId(is);
   // throw an emission sequence from the sampled path
@@ -144,23 +188,23 @@ void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Sample()  {
 }
 //----------------------------------------------------------------------------------------
 // use Baum-Welch training to estimate parameters
-template <class T_dpt, class T_ne_dpt, class T_bwc>
-void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Estimate() {
-  bw_counters_ = new T_bwc;
+template <class T_dp_table, class T_dp_table_no_emit, class T_bw_counters>
+void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::Estimate() {
+  bw_counters_ = new T_bw_counters;
   cout << "parameter estimation:" << endl;
   cout << setw(12) << "iteration" << setw(12) << "likelihood";
-  for (auto &parameter : pars_) cout << setw(20) << parameter.first;
+  for (auto &parameter : pars_.vals()) cout << setw(20) << parameter.first;
   cout << endl;
   cout << setw(24) << " ";
-  for (auto &parameter : pars_) cout << setw(20) << parameter.second;
+  for (auto &parameter : pars_.vals()) cout << setw(20) << parameter.second;
   cout << endl;
   // run <iterations_> baum welch steps
   for (unsigned iter=1; iter<=iterations_; ++iter) {
     // calculate the forward DP table
-    bfloat fw = Forward(&fw_dptable_, pars_, emission_probs_, sampled_seq_);
+    bfloat fw = Forward(&fw_dptable_, transition_probs_, emission_probs_, sampled_seq_);
     bw_counters_->resetCounts();
     // and the backward one
-    Backward(*bw_counters_, fw_dptable_, &bw_dptable_, pars_, emission_probs_, sampled_seq_);
+    Backward(*bw_counters_, fw_dptable_, &bw_dptable_, transition_probs_, emission_probs_, sampled_seq_);
 
     // get the emission counts (in a form that's more accessible
     map<string,map<int,double> > emission_counts;
@@ -183,10 +227,11 @@ void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Estimate() {
 	transition_counts[from_state][to_state] = bw_counters_->transitionBaumWelchCount0[tindex];
       }
     }
-    update_parameters(emission_counts, transition_counts, &pars_);
+    update_parameters_(emission_counts, transition_counts, &pars_);
     cout << setw(12) << iter << setw(12) << fw;
-    for (auto &parameter : pars_) cout << setw(20) << parameter.second;
+    for (auto &parameter : pars_.vals()) cout << setw(20) << parameter.second;
     cout << endl;
+    // pars_.SetTransitionProbs();
 
     delete fw_dptable_;
     fw_dptable_ = 0;
@@ -196,11 +241,11 @@ void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Estimate() {
 }
 //----------------------------------------------------------------------------------------
 // Compute a Viterbi alignment
-template <class T_dpt, class T_ne_dpt, class T_bwc>
-void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Viterbi() {
+template <class T_dp_table, class T_dp_table_no_emit, class T_bw_counters>
+void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::Viterbi() {
   cout << "viterbi recursion and traceback" << endl;
-  Viterbi_recurse(&vt_dptable_, pars_, emission_probs_, sampled_seq_);
-  path_out_ = &Viterbi_trace(vt_dptable_, pars_, emission_probs_, sampled_seq_);
+  Viterbi_recurse(&vt_dptable_, transition_probs_, emission_probs_, sampled_seq_);
+  path_out_ = &Viterbi_trace(vt_dptable_, transition_probs_, emission_probs_, sampled_seq_);
   // get a record of the state_id : state_str mapping (it's non-deterministic)
   for (unsigned is=0; is<n_states_; is++)
     state_ids_[is] = vt_dptable_->getStateId(is);
@@ -209,8 +254,8 @@ void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Viterbi() {
 }
 //----------------------------------------------------------------------------------------
 // Print the Viterbi alignment, and a summary of the posteriors
-template <class T_dpt, class T_ne_dpt, class T_bwc>
-void HmmDriver<T_dpt, T_ne_dpt, T_bwc>::Report()  {
+template <class T_dp_table, class T_dp_table_no_emit, class T_bw_counters>
+void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>::Report()  {
   string seq_str(""),path_str("");
   // if they aren't the same size, we want to print to the end of the longer one
   size_t imax = max((size_t)path_out_->size(), sampled_seq_.size());

@@ -3,8 +3,8 @@ CC_OPTIONS = -std=c++0x -Wno-strict-overflow -Wno-deprecated -Wall
 OPTIMIZE_OPTIONS = #-O3 -ffast-math -finline-limit=10000
 DEBUG_OPTIONS = #-g
 
-aligner: main.cc aligner.cc aligner.h algebras.cc algebras.h dptables.h mybanding.h HmmDriver.h parameters.h
-	g++ ${CC_OPTIONS} ${OPTIMIZE_OPTIONS} ${DEBUG_OPTIONS} -o $@ -lstdc++ main.cc aligner.cc algebras.cc parameters.cc
+aligner: main.cc aligner.cc aligner.h algebras.cc algebras.h dptables.h mybanding.h HmmDriver.h Parameters.h
+	g++ ${CC_OPTIONS} ${OPTIMIZE_OPTIONS} ${DEBUG_OPTIONS} -o $@ -lstdc++ main.cc aligner.cc algebras.cc Parameters.cc
 
 aligner.cc aligner.h: aligner.xml
 	../../bin/hmmoc aligner.xml

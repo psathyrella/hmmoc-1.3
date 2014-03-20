@@ -9,6 +9,20 @@
 #include "HmmDriver.h"
 
 //----------------------------------------------------------------------------------------
+// Sets the named parameter given the elements of the transition matrix.
+// To be called at the end of each Baum Welch iteration to update the parameter
+// values.
+// set the values in <probs> using the info in <config> and the parameter values in <pars>
+void UpdateParameters(map<string, map<int,double> > &ecounts,
+		      map<string, map<string,double> > &tcounts,
+		      Parameters *pars) {
+  // TODO: need to assert that we have all of these
+  pars->set_val("go_honest", tcounts["dishonest"]["honest"] / (tcounts["dishonest"]["honest"] + tcounts["dishonest"]["dishonest"] + tcounts["dishonest"]["stop"]));
+  pars->set_val("go_dishonest", tcounts["honest"]["dishonest"] / (tcounts["honest"]["dishonest"] + tcounts["honest"]["honest"]       + tcounts["honest"]["stop"]));
+
+  (*pars)["go_dishonest"] = tcounts["honest"]["dishonest"] / (tcounts["honest"]["dishonest"] + tcounts["honest"]["honest"]       + tcounts["honest"]["stop"]);
+}
+//----------------------------------------------------------------------------------------
 // void readFile(istream& is, vector<pair<string,vector<char> > > &seqs) {
 //   string line;
 //   while(getline(is,line)) {
@@ -42,11 +56,7 @@
 // }
 int main(int argc, char** argv) {
   srand(getpid());
-  map<string, double> pars;
-  pars["go_stop"] = 0.001;
-  pars["go_dishonest"] = 0.02;
-  pars["go_honest"] = 0.05;
-  HmmDriver<SeqGenDPTable, NESeqGenDPTable, SeqGenBaumWelch> hmmd(pars);
+  HmmDriver<SeqGenDPTable, NESeqGenDPTable, SeqGenBaumWelch> hmmd(&UpdateParameters);
   hmmd.Sample();
   hmmd.Estimate();
   hmmd.Viterbi();
