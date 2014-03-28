@@ -50,14 +50,13 @@
   </code>
 </probability>
 
-<probability id="prob_begin_honest">	    <code type="expression" init="initialise2"> transition_probs["begin"]["honest"]	  </code></probability>
-<probability id="prob_begin_dishonest">	    <code type="expression" init="initialise2"> transition_probs["begin"]["dishonest"]	  </code></probability>
-<probability id="prob_honest_honest">	    <code type="expression" init="initialise2"> transition_probs["honest"]["honest"]	  </code></probability>
-<probability id="prob_honest_dishonest">    <code type="expression" init="initialise2"> transition_probs["honest"]["dishonest"]	  </code></probability>
-<probability id="prob_dishonest_dishonest"> <code type="expression" init="initialise2"> transition_probs["dishonest"]["dishonest"]</code></probability>
-<probability id="prob_dishonest_honest">    <code type="expression" init="initialise2"> transition_probs["dishonest"]["honest"]	  </code></probability>
-<probability id="prob_honest_stop">	    <code type="expression" init="initialise2"> transition_probs["honest"]["stop"]	  </code></probability>
-<probability id="prob_dishonest_stop">	    <code type="expression" init="initialise2"> transition_probs["dishonest"]["stop"]	  </code></probability>
+<probability id="prob_begin_honest"> <code type="expression" init="initialise2"> transition_probs["begin"]["honest"] </code></probability>
+<probability id="prob_dishonest_dishonest"> <code type="expression" init="initialise2"> transition_probs["dishonest"]["dishonest"] </code></probability>
+<probability id="prob_dishonest_honest"> <code type="expression" init="initialise2"> transition_probs["dishonest"]["honest"] </code></probability>
+<probability id="prob_dishonest_stop"> <code type="expression" init="initialise2"> transition_probs["dishonest"]["stop"] </code></probability>
+<probability id="prob_honest_dishonest"> <code type="expression" init="initialise2"> transition_probs["honest"]["dishonest"] </code></probability>
+<probability id="prob_honest_honest"> <code type="expression" init="initialise2"> transition_probs["honest"]["honest"] </code></probability>
+<probability id="prob_honest_stop"> <code type="expression" init="initialise2"> transition_probs["honest"]["stop"] </code></probability>
 
 <hmm id="SeqGen">
  <description> random sequence generator </description>
@@ -95,14 +94,13 @@
   </emission>
 
   <transitions id="transitions">
-  <transition id="begin_honest"         from="begin"     to="honest"    probability="prob_begin_honest"         emission="honest_emission"/>
-  <transition id="begin_dishonest"      from="begin"     to="dishonest" probability="prob_begin_dishonest"      emission="dishonest_emission"/>
-  <transition id="honest_honest"        from="honest"    to="honest"    probability="prob_honest_honest"        emission="honest_emission"/>
-  <transition id="honest_dishonest"     from="honest"    to="dishonest" probability="prob_honest_dishonest"     emission="dishonest_emission"/>
-  <transition id="dishonest_dishonest"  from="dishonest" to="dishonest" probability="prob_dishonest_dishonest"  emission="dishonest_emission"/>
-  <transition id="dishonest_honest"     from="dishonest" to="honest"    probability="prob_dishonest_honest"     emission="honest_emission"/>
-  <transition id="honest_stop"          from="honest"    to="stop"      probability="prob_honest_stop"          emission="empty"/>
-  <transition id="dishonest_stop"       from="dishonest" to="stop"      probability="prob_dishonest_stop"       emission="empty"/>
+    <transition id="begin_honest" from="begin" to="honest" probability="prob_begin_honest" emission="honest_emission"/>
+    <transition id="dishonest_dishonest" from="dishonest" to="dishonest" probability="prob_dishonest_dishonest" emission="dishonest_emission"/>
+    <transition id="dishonest_honest" from="dishonest" to="honest" probability="prob_dishonest_honest" emission="honest_emission"/>
+    <transition id="dishonest_stop" from="dishonest" to="stop" probability="prob_dishonest_stop" emission="empty"/>
+    <transition id="honest_dishonest" from="honest" to="dishonest" probability="prob_honest_dishonest" emission="dishonest_emission"/>
+    <transition id="honest_honest" from="honest" to="honest" probability="prob_honest_honest" emission="honest_emission"/>
+    <transition id="honest_stop" from="honest" to="stop" probability="prob_honest_stop" emission="empty"/>
   </transitions>
 </hmm>
 
@@ -133,7 +131,6 @@
 
   <transitions id="NEtransitions">
   <transition from="NEbegin"     to="NEhonest"    probability="prob_begin_honest" emission="NEempty"/>
-  <transition from="NEbegin"     to="NEdishonest" probability="prob_begin_dishonest" emission="NEempty"/>
   <transition from="NEhonest"    to="NEhonest"    probability="prob_honest_honest" emission="NEempty"/>
   <transition from="NEhonest"    to="NEdishonest" probability="prob_honest_dishonest" emission="NEempty"/>
   <transition from="NEdishonest" to="NEdishonest" probability="prob_dishonest_dishonest" emission="NEempty"/>

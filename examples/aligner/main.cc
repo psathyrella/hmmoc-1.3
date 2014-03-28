@@ -58,6 +58,7 @@ void UpdateParameters(map<string, map<string,double> > &ecounts,
 int main(int argc, char** argv) {
   srand(getpid());
   HmmDriver<SeqGenDPTable, NESeqGenDPTable, SeqGenBaumWelch> hmmd(&UpdateParameters);
+  hmmd.WriteXml();
   hmmd.Sample();
   hmmd.Estimate();
   hmmd.Viterbi();

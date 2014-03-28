@@ -1,3 +1,4 @@
+# there exist more comments in the parsing code
 ^silent_states begin stop
 ^states honest dishonest
 ^parameter go_honest    0.05
@@ -6,10 +7,10 @@
 ^parameter go_stop      0.001
 #^parameter honest_0     0.1
 ^alphabet 0123
-# ordering is set by order in alphabet
+# ordering is set by order in alphabet:
 ^emission honest        0.1     0.1  0.1 $auto
 ^emission dishonest     0.3     0.3  0.3 $auto
-# *from* left *to* top (don't put a comment line after here a.t.m.)
+# *from* left *to* top (don't put a comment line -- or anything else -- after here a.t.m.)
 ^transition_config
            begin   honest     dishonest       stop
 begin        x       1            x            x

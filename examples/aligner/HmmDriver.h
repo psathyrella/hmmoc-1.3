@@ -15,6 +15,7 @@ public:
 				      map<string, map<string,double> > &tcounts,
 				      Parameters *pars));
   void Init();
+  void WriteXml();
   void CheckProbabilities(const vector<double> probs);
   void Sample();
   void Estimate();
@@ -91,21 +92,10 @@ void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>
 	  ss >> state;
 	  states_.insert(state);
 	}
-      // } else if (config == "emission") {
-      // 	string state;
-      // 	ss >> state;
-      // 	assert(states_.find(state) != states_.end());
-      // 	emission_probs_[state] = map<string,double>();
-      // 	for (auto &letter : alphabet_) {
-      // 	  double prob;
-      // 	  ss >> prob;
-      // 	  emission_probs_[state][letter] = prob;
-      // 	}
       } else if (config == "emission") {
 	string state;
 	ss >> state;
 	assert(states_.find(state) != states_.end());
-	// emission_probs_[state] = map<string,double>();
 	for (auto &letter : alphabet_) {
 	  string config;
 	  ss >> config;
@@ -153,6 +143,45 @@ void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>
   for (auto &state : states_) { // make sure we have emission probs for each non-silent state
     assert(emission_probs_.find(state) != emission_probs_.end());
     // CheckProbabilities(emission_probs_[state]);
+  }
+}
+//----------------------------------------------------------------------------------------
+//
+template <class T_dp_table, class T_dp_table_no_emit, class T_bw_counters>
+void HmmDriver<T_dp_table, T_dp_table_no_emit, T_bw_counters>
+::WriteXml() {
+  // write out <probability/> tags
+  for (auto &it_from : transition_config_) {
+    for (auto &it_to : it_from.second) {
+      string from_state(it_from.first);
+      string to_state(it_to.first);
+      if (it_to.second == "x")
+	continue; // this transition has zero probability
+      cout
+	<< "<probability id=\"prob_" << from_state << "_" << to_state << "\"> <code type=\"expression\" init=\"initialise2\"> "
+	<< "transition_probs[\"" << from_state << "\"][\"" << to_state << "\"] </code></probability>"
+	<< endl;
+    }
+  }
+  
+  // then <transitions>
+  for (auto &it_from : transition_config_) {
+    for (auto &it_to : it_from.second) {
+      string from_state(it_from.first);
+      string to_state(it_to.first);
+      if (it_to.second == "x")
+	continue; // this transition has zero probability
+      cout
+	<< "<transition id=\"" << from_state << "_" << to_state << "\" from=\""
+	<< from_state << "\" to=\"" << to_state << "\" probability=\"prob_"
+	<< from_state << "_" << to_state << "\" emission=\"";
+      if (silent_states_.find(to_state) != silent_states_.end()) { // no emission from this state
+	cout << "empty\"/>";
+      } else {
+	cout << to_state << "_emission\"/>";
+      }
+      cout << endl;
+    }
   }
 }
 //----------------------------------------------------------------------------------------
