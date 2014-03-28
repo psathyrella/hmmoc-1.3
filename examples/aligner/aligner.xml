@@ -5,20 +5,33 @@
  0123
 </alphabet>
 
-<!--  Definition of the output "tapes"  -->
-<output id="sequence">
+<!--  Definition of the output tapes  -->
+<output id="seq_1">
  <alphabet idref="nucleotides"/>
- <identifier type="length" value="seq_length"/>
- <identifier type="sequence" value="sequence"/>
+ <identifier type="length" value="seq_1_length"/>
+ <identifier type="sequence" value="seq_1"/>
  <code type="parameter">
   <![CDATA[
-     vector<char>& sequence
+     vector<char>& seq_1
+  ]]>
+ </code>
+</output>
+<output id="seq_2">
+ <alphabet idref="nucleotides"/>
+ <identifier type="length" value="seq_2_length"/>
+ <identifier type="sequence" value="seq_2"/>
+ <code type="parameter">
+  <![CDATA[
+     vector<char>& seq_2
   ]]>
  </code>
 </output>
 
 <code id="initialise1" type="statement">
-  <![CDATA[ int seq_length = sequence.size(); ]]>
+  <![CDATA[
+	   int seq_1_length = seq_1.size();
+           int seq_2_length = seq_2.size();
+  ]]>
 </code>
 
 <code id="initialise2" type="statement">
@@ -28,47 +41,68 @@
 </code>
 
 <!-- NOTE: hmmoc's parser barfs on the comma in map<string, vector<double> >, so I sed through and  -->
-<!-- replace the XcommaX later (see makefile). TODO fix that shit. -->
- <probability id="honest_emission_prob">
+<!-- replace the XcommaX later (see makefile). TODO: fix that shit. -->
+ <probability id="insert_emission_prob">
   <code type="statement" init="initialise1">
-    <identifier output="sequence" value="iSymb"/>
+    <identifier output="seq_1" value="symbol"/>
     <identifier type="result" value="iPP"/>
     <code type="parameter"> <![CDATA[ map<stringXcommaXmap<stringXcommaXdouble> > emission_probs ]]> </code>
     <![CDATA[
-      iPP = emission_probs["honest"][string(1,iSymb)];
+      iPP = emission_probs["insert"][string(1,symbol)];
     ]]>
   </code>
 </probability>
-<probability id="dishonest_emission_prob">
+ <probability id="delete_emission_prob">
   <code type="statement" init="initialise1">
-    <identifier output="sequence" value="iSymb"/>
+    <identifier output="seq_2" value="symbol"/>
     <identifier type="result" value="iPP"/>
     <code type="parameter"> <![CDATA[ map<stringXcommaXmap<stringXcommaXdouble> > emission_probs ]]> </code>
     <![CDATA[
-      iPP = emission_probs["dishonest"][string(1,iSymb)];
+      iPP = emission_probs["delete"][string(1,symbol)];
+    ]]>
+  </code>
+</probability>
+ <probability id="match_emission_prob">
+  <code type="statement" init="initialise1">
+    <identifier output="seq_1" value="symbol_1"/>
+    <identifier output="seq_2" value="symbol_2"/>
+    <identifier type="result" value="iPP"/>
+    <code type="parameter"> <![CDATA[ map<stringXcommaXmap<stringXcommaXdouble> > emission_probs ]]> </code>
+    <!-- um, for the moment this only depends on one sequence. -->
+    <![CDATA[
+      iPP = emission_probs["match"][string(1,symbol_1)];
     ]]>
   </code>
 </probability>
 
-<probability id="prob_begin_honest"> <code type="expression" init="initialise2"> transition_probs["begin"]["honest"] </code></probability>
-<probability id="prob_dishonest_dishonest"> <code type="expression" init="initialise2"> transition_probs["dishonest"]["dishonest"] </code></probability>
-<probability id="prob_dishonest_honest"> <code type="expression" init="initialise2"> transition_probs["dishonest"]["honest"] </code></probability>
-<probability id="prob_dishonest_stop"> <code type="expression" init="initialise2"> transition_probs["dishonest"]["stop"] </code></probability>
-<probability id="prob_honest_dishonest"> <code type="expression" init="initialise2"> transition_probs["honest"]["dishonest"] </code></probability>
-<probability id="prob_honest_honest"> <code type="expression" init="initialise2"> transition_probs["honest"]["honest"] </code></probability>
-<probability id="prob_honest_stop"> <code type="expression" init="initialise2"> transition_probs["honest"]["stop"] </code></probability>
+<probability id="prob_begin_match">     <code type="expression" init="initialise2"> transition_probs["begin"]["match"]  </code></probability>
+<probability id="prob_begin_insert">    <code type="expression" init="initialise2"> transition_probs["begin"]["insert"] </code></probability>
+<probability id="prob_begin_delete">    <code type="expression" init="initialise2"> transition_probs["begin"]["delete"] </code></probability>
+<probability id="prob_begin_stop">      <code type="expression" init="initialise2"> transition_probs["begin"]["stop"]   </code></probability>
+<probability id="prob_match_match">     <code type="expression" init="initialise2"> transition_probs["match"]["match"]  </code></probability>
+<probability id="prob_match_insert">    <code type="expression" init="initialise2"> transition_probs["match"]["insert"] </code></probability>
+<probability id="prob_match_delete">    <code type="expression" init="initialise2"> transition_probs["match"]["delete"] </code></probability>
+<probability id="prob_match_stop">      <code type="expression" init="initialise2"> transition_probs["match"]["stop"]   </code></probability>
+<probability id="prob_insert_match">    <code type="expression" init="initialise2"> transition_probs["insert"]["match"] </code></probability>
+<probability id="prob_insert_insert">   <code type="expression" init="initialise2"> transition_probs["insert"]["insert"]</code></probability>
+<probability id="prob_insert_stop">     <code type="expression" init="initialise2"> transition_probs["insert"]["stop"]  </code></probability>
+<probability id="prob_delete_match">    <code type="expression" init="initialise2"> transition_probs["delete"]["match"] </code></probability>
+<probability id="prob_delete_delete">   <code type="expression" init="initialise2"> transition_probs["delete"]["delete"]</code></probability>
+<probability id="prob_delete_stop">     <code type="expression" init="initialise2"> transition_probs["delete"]["stop"]  </code></probability>
 
 <hmm id="SeqGen">
  <description> random sequence generator </description>
  <outputs id="outputs">
-  <output idref="sequence"/>
+  <output idref="seq_1"/>
+  <output idref="seq_2"/>
  </outputs>
  <clique id="block1">
   <state id="begin"/>
  </clique>
  <clique id="block2">
-  <state id="honest"/>
-  <state id="dishonest"/>
+  <state id="match"/>
+  <state id="insert"/>
+  <state id="delete"/>
  </clique>
  <clique id="block3">
   <state id="stop"/>
@@ -79,13 +113,18 @@
   <clique idref="block3"/>
  </graph>
 
-  <emission id="honest_emission">
-   <output idref="sequence"/>
-   <probability idref="honest_emission_prob"/>
+  <emission id="insert_emission">
+   <output idref="seq_1"/>
+   <probability idref="insert_emission_prob"/>
   </emission>
-  <emission id="dishonest_emission">
-   <output idref="sequence"/>
-   <probability idref="dishonest_emission_prob"/>
+  <emission id="delete_emission">
+   <output idref="seq_2"/>
+   <probability idref="delete_emission_prob"/>
+  </emission>
+  <emission id="match_emission">
+   <output idref="seq_1"/>
+   <output idref="seq_2"/>
+   <probability idref="match_emission_prob"/>
   </emission>
   <emission id="empty">
    <probability>
@@ -94,13 +133,20 @@
   </emission>
 
   <transitions id="transitions">
-    <transition id="begin_honest" from="begin" to="honest" probability="prob_begin_honest" emission="honest_emission"/>
-    <transition id="dishonest_dishonest" from="dishonest" to="dishonest" probability="prob_dishonest_dishonest" emission="dishonest_emission"/>
-    <transition id="dishonest_honest" from="dishonest" to="honest" probability="prob_dishonest_honest" emission="honest_emission"/>
-    <transition id="dishonest_stop" from="dishonest" to="stop" probability="prob_dishonest_stop" emission="empty"/>
-    <transition id="honest_dishonest" from="honest" to="dishonest" probability="prob_honest_dishonest" emission="dishonest_emission"/>
-    <transition id="honest_honest" from="honest" to="honest" probability="prob_honest_honest" emission="honest_emission"/>
-    <transition id="honest_stop" from="honest" to="stop" probability="prob_honest_stop" emission="empty"/>
+    <transition id="begin_match" from="begin" to="match" probability="prob_begin_match" emission="match_emission"/>
+    <transition id="begin_insert" from="begin" to="insert" probability="prob_begin_insert" emission="insert_emission"/>
+    <transition id="begin_delete" from="begin" to="delete" probability="prob_begin_delete" emission="delete_emission"/>
+    <transition id="begin_stop" from="begin" to="stop" probability="prob_begin_stop" emission="empty"/>
+    <transition id="match_match" from="match" to="match" probability="prob_match_match" emission="match_emission"/>
+    <transition id="match_insert" from="match" to="insert" probability="prob_match_insert" emission="insert_emission"/>
+    <transition id="match_delete" from="match" to="delete" probability="prob_match_delete" emission="delete_emission"/>
+    <transition id="match_stop" from="match" to="stop" probability="prob_match_stop" emission="empty"/>
+    <transition id="insert_match" from="insert" to="match" probability="prob_insert_match" emission="match_emission"/>
+    <transition id="insert_insert" from="insert" to="insert" probability="prob_insert_insert" emission="insert_emission"/>
+    <transition id="insert_stop" from="insert" to="stop" probability="prob_insert_stop" emission="empty"/>
+    <transition id="delete_match" from="delete" to="match" probability="prob_delete_match" emission="match_emission"/>
+    <transition id="delete_delete" from="delete" to="delete" probability="prob_delete_delete" emission="delete_emission"/>
+    <transition id="delete_stop" from="delete" to="stop" probability="prob_delete_stop" emission="empty"/>
   </transitions>
 </hmm>
 
@@ -111,8 +157,9 @@
   <state id="NEbegin"/>
  </clique>
  <clique id="NEblock2">
-  <state id="NEhonest"/>
-  <state id="NEdishonest"/>
+  <state id="NEmatch"/>
+  <state id="NEinsert"/>
+  <state id="NEdelete"/>
  </clique>
  <clique id="NEblock3">
   <state id="NEstop"/>
@@ -130,13 +177,20 @@
   </emission>
 
   <transitions id="NEtransitions">
-  <transition from="NEbegin"     to="NEhonest"    probability="prob_begin_honest" emission="NEempty"/>
-  <transition from="NEhonest"    to="NEhonest"    probability="prob_honest_honest" emission="NEempty"/>
-  <transition from="NEhonest"    to="NEdishonest" probability="prob_honest_dishonest" emission="NEempty"/>
-  <transition from="NEdishonest" to="NEdishonest" probability="prob_dishonest_dishonest" emission="NEempty"/>
-  <transition from="NEdishonest" to="NEhonest"    probability="prob_dishonest_honest" emission="NEempty"/>
-  <transition from="NEhonest"    to="NEstop"      probability="prob_honest_stop" emission="NEempty"/>
-  <transition from="NEdishonest" to="NEstop"      probability="prob_dishonest_stop" emission="NEempty"/>
+    <transition from="NEbegin"  to="NEmatch"      probability="prob_begin_match"          emission="NEempty"/>
+    <transition from="NEbegin"  to="NEinsert"     probability="prob_begin_insert"         emission="NEempty"/>
+    <transition from="NEbegin"  to="NEdelete"     probability="prob_begin_delete"         emission="NEempty"/>
+    <transition from="NEbegin"  to="NEstop"       probability="prob_begin_stop"           emission="NEempty"/>
+    <transition from="NEmatch"  to="NEmatch"      probability="prob_match_match"          emission="NEempty"/>
+    <transition from="NEmatch"  to="NEinsert"     probability="prob_match_insert"         emission="NEempty"/>
+    <transition from="NEmatch"  to="NEdelete"     probability="prob_match_delete"         emission="NEempty"/>
+    <transition from="NEmatch"  to="NEstop"       probability="prob_match_stop"           emission="NEempty"/>
+    <transition from="NEinsert" to="NEmatch"      probability="prob_insert_match"         emission="NEempty"/>
+    <transition from="NEinsert" to="NEinsert"     probability="prob_insert_insert"        emission="NEempty"/>
+    <transition from="NEinsert" to="NEstop"       probability="prob_insert_stop"          emission="NEempty"/>
+    <transition from="NEdelete" to="NEmatch"      probability="prob_delete_match"         emission="NEempty"/>
+    <transition from="NEdelete" to="NEdelete"     probability="prob_delete_delete"        emission="NEempty"/>
+    <transition from="NEdelete" to="NEstop"       probability="prob_delete_stop"          emission="NEempty"/>
   </transitions>
 </hmm>
 

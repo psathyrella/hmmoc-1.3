@@ -40,7 +40,7 @@ void Parameters::SetProbabilities(map<string,map<string,string> > *configs,
 	  ptr_to_auto = &((*probs)[from_state][to_state]);
 	} else { // the transition prob is just the value of a parameter in <par>
 	  assert(vals_.find(config) != vals_.end()); // make sure we were already given the parameter
-	 prob = vals_[config];
+	  prob = vals_[config];
 	}
       } else { // hard-coded number
 	stringstream ss(config);
@@ -56,14 +56,14 @@ void Parameters::SetProbabilities(map<string,map<string,string> > *configs,
     if (ptr_to_auto) {
       *ptr_to_auto = 1.0 - total_prob;
     }
-    // for (auto &to_pair : from_pair.second) {
-    //   string to_state(to_pair.first);
-    //   cout
-    // 	<< setw(12) << from_state
-    // 	<< setw(12) << to_state
-    // 	<< setw(12) << (*probs)[from_state][to_state]
-    // 	<< endl;
-    // }
+    for (auto &to_pair : from_pair.second) {
+      string to_state(to_pair.first);
+      cout
+    	<< setw(12) << from_state
+    	<< setw(12) << to_state
+    	<< setw(12) << (*probs)[from_state][to_state]
+    	<< endl;
+    }
   }
   is_updated_ = true;
 }

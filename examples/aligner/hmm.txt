@@ -1,19 +1,44 @@
 # there exist more comments in the parsing code
 ^silent_states begin stop
-^states honest dishonest
-^parameter go_honest    0.05
-^parameter go_dishonest 0.02
-# if present, go_stop is used by default as the inverse sampling length
-^parameter go_stop      0.001
-#^parameter honest_0     0.1
+^states match insert delete
+^tapes seq_1 seq_2
+^parameter diff    0.1
+^parameter delta   0.05
+^parameter eps     0.02
+# if present, tau is used by default as the inverse sampling length
+^parameter tau     0.1
 ^alphabet 0123
-# ordering is set by order in alphabet:
-^emission honest        0.1     0.1  0.1 $auto
-^emission dishonest     0.3     0.3  0.3 $auto
+# seq_1 along left side, seq_2 along top
+# -: no emission on that tape
+^emission_config match
+     -       0       1       2        3
+-    x       x       x       x        x
+0    x     $auto   $diff    $diff   $diff
+1    x     $diff   $auto    $diff   $diff
+2    x     $diff   $diff    $auto   $diff
+3    x     $diff   $diff    $diff   $auto
+^emission_config insert
+     -       0       1       2      3
+-    x       x       x       x      x
+0   0.25     x       x       x      x
+1   0.25     x       x       x      x
+2   0.25     x       x       x      x
+3   0.25     x       x       x      x
+^emission_config delete
+     -       0       1       2      3
+-    x     0.25    0.25     0.25   0.25
+0    x       x       x       x      x
+1    x       x       x       x      x
+2    x       x       x       x      x
+3    x       x       x       x      x
+#^emission match   0.1     0.1    0.1    $auto
+#^emission insert  0.3     0.3    0.3    $auto
+#^emission delete  0.3     0.3    0.3    $auto
 # *from* left *to* top (don't put a comment line -- or anything else -- after here a.t.m.)
 ^transition_config
-           begin   honest     dishonest       stop
-begin        x       1            x            x
-honest       x      $auto     $go_dishonest  $go_stop
-dishonest    x    $go_honest     $auto       $go_stop
-stop         x       x            x            x
+           begin   match        insert      delete      stop
+begin        x     $auto        $delta      $delta      $tau
+match        x     $auto        $delta      $delta      $tau
+insert       x     $auto        $eps          x         $tau
+delete       x     $auto          x         $eps        $tau
+stop         x       x            x           x           x

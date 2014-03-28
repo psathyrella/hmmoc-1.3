@@ -9,7 +9,7 @@
 #include "HmmDriver.h"
 
 //----------------------------------------------------------------------------------------
-// Sets the named parameter given the elements of the transition matrix.
+// Sets the named parameter given the elements of the transition and emission matrices.
 // To be called at the end of each Baum Welch iteration to update the parameter
 // values.
 // set the values in <probs> using the info in <config> and the parameter values in <pars>
@@ -18,8 +18,8 @@ void UpdateParameters(map<string, map<string,double> > &ecounts,
 		      Parameters *pars) {
   // TODO: need to assert that we have all of these
   // transitions
-  pars->set_val("go_honest", tcounts["dishonest"]["honest"] / (tcounts["dishonest"]["honest"] + tcounts["dishonest"]["dishonest"] + tcounts["dishonest"]["stop"]));
-  pars->set_val("go_dishonest", tcounts["honest"]["dishonest"] / (tcounts["honest"]["dishonest"] + tcounts["honest"]["honest"]       + tcounts["honest"]["stop"]));
+  // pars->set_val("go_honest", tcounts["dishonest"]["honest"] / (tcounts["dishonest"]["honest"] + tcounts["dishonest"]["dishonest"] + tcounts["dishonest"]["stop"]));
+  // pars->set_val("go_dishonest", tcounts["honest"]["dishonest"] / (tcounts["honest"]["dishonest"] + tcounts["honest"]["honest"]       + tcounts["honest"]["stop"]));
   // emissions
   // pars->set_val("honest_0", ecounts["honest"]["0"] / (ecounts["honest"]["0"] + ecounts["honest"]["1"] + ecounts["honest"]["2"] + ecounts["honest"]["3"]));
 }
@@ -58,9 +58,9 @@ void UpdateParameters(map<string, map<string,double> > &ecounts,
 int main(int argc, char** argv) {
   srand(getpid());
   HmmDriver<SeqGenDPTable, NESeqGenDPTable, SeqGenBaumWelch> hmmd(&UpdateParameters);
-  hmmd.WriteXml();
+  // hmmd.WriteXml();
   hmmd.Sample();
-  hmmd.Estimate();
+  // hmmd.Estimate();
   hmmd.Viterbi();
   hmmd.Report();
 }
