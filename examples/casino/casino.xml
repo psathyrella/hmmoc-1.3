@@ -14,6 +14,7 @@
 
 <hmm id="Casino">
  <description>  The occasionally dishonest casino  </description>
+
  <outputs id="casinooutputs">
   <output idref="sequence"/>
  </outputs>
@@ -21,10 +22,10 @@
  <clique id="block1">
   <state id="start"/>
  </clique>
+
  <clique id="block2">
   <state id="honest"/>
   <state id="dishonest"/>
-  <state id="stupid"/>
  </clique>
  <clique id="block3">
   <state id="end"/>
@@ -41,9 +42,6 @@
   <transition from="honest" to="dishonest" probability="goDishonest" emission="emitDishonest"/>
   <transition from="dishonest" to="dishonest" probability="stayDishonest" emission="emitDishonest"/>
   <transition from="dishonest" to="honest" probability="goHonest" emission="emitHonest"/>
-  <transition from="dishonest" to="stupid" probability="goStupid" emission="emitStupid"/>
-  <transition from="stupid" to="stupid" probability="stayStupid" emission="emitStupid"/>
-  <transition from="stupid" to="honest" probability="goHonest" emission="emitHonest"/>
   <transition from="honest" to="end" probability="goStop" emission="empty"/>
   <transition from="dishonest" to="end" probability="goStop" emission="empty"/>
  </transitions>
@@ -53,10 +51,8 @@
      struct Params {
        double iGoHonest;
        double iGoDishonest;
-       double iGoStupid;
        double iGoStop;
        double aEmitDishonest[6];
-       double aEmitStupid[6];
      };
    ]]>
   </code>
@@ -117,12 +113,12 @@
         iPar.iGoDishonest
     </code>
   </probability>
-  <probability id="goStupid"><code> iPar.iGoStupid </code></probability>
+
   <probability id="goHonest"><code> iPar.iGoHonest </code></probability>
   <probability id="goStop"><code> iPar.iGoStop </code></probability>
   <probability id="stayHonest"><code> 1.0 - iPar.iGoDishonest - iPar.iGoStop </code></probability>
   <probability id="stayDishonest"><code> 1.0 - iPar.iGoHonest - iPar.iGoStop </code></probability>
-  <probability id="stayStupid"><code> 1.0 - iPar.iGoStupid </code></probability>
+
 </hmm>
 
 <hmm id="NoEmissionCasino">
@@ -135,7 +131,6 @@
  <clique id="NEblock2">
   <state id="NEhonest"/>
   <state id="NEdishonest"/>
-  <state id="NEstupid"/>
  </clique>
  <clique id="NEblock3">
   <state id="NEend"/>
@@ -152,9 +147,6 @@
   <transition from="NEhonest" to="NEdishonest" probability="goDishonest" emission="NEempty"/>
   <transition from="NEdishonest" to="NEdishonest" probability="stayDishonest" emission="NEempty"/>
   <transition from="NEdishonest" to="NEhonest" probability="goHonest" emission="NEempty"/>
-  <transition from="NEdishonest" to="NEstupid" probability="goStupid" emission="NEempty"/>
-  <transition from="NEstupid" to="NEstupid" probability="stayStupid" emission="NEempty"/>
-  <transition from="NEstupid" to="NEhonest" probability="goHonest" emission="NEempty"/>
   <transition from="NEhonest" to="NEend" probability="goStop" emission="NEempty"/>
   <transition from="NEdishonest" to="NEend" probability="goStop" emission="NEempty"/>
  </transitions>

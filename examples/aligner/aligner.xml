@@ -1,38 +1,132 @@
 <?xml version="1.0"?>
+<!--
+      This file is part of HMMoC 1.3, a hidden Markov model compiler.
+      Copyright (C) 2007 by Gerton Lunter, Oxford University.
+  
+      HMMoC is free software; you can redistribute it and/or modify
+      it under the terms of the GNU General Public License as published by
+      the Free Software Foundation; either version 2 of the License, or
+      (at your option) any later version.
+  
+      HMMOC is distributed in the hope that it will be useful,
+      but WITHOUT ANY WARRANTY; without even the implied warranty of
+      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+      GNU General Public License for more details.
+  
+      You should have received a copy of the GNU General Public License
+      along with HMMoC; if not, write to the Free Software
+      Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+-->
+
+
+
 <hml debug="yes">
+
+
+
 <author> Gerton Lunter </author>
+
+
+
+<!--  Definition of an emission alphabet  -->
 
 <alphabet id="nucleotides">
  ACGT
 </alphabet>
 
+
+
+
 <!--  Definition of the output "tapes"  -->
-<output id="sequence1">
+
+<output id="sequence1" speed="0">
+
+ <!-- 'speed=0' sets this sequence to be the fastest iterator (inner loop); make this the shortest sequence for best performance) -->
+
  <alphabet idref="nucleotides"/>
+
+ <!-- Specify identifiers for sequence and sequence length, to be referred to in recursion -->
  <identifier type="length" value="iLen1"/>
  <identifier type="sequence" value="iSequence1"/>
+
  <!-- These identifiers need to be passed to the function, so specify them here as parameters.
       Because of the & character, we need a CDATA block to quote the text.  -->
+
  <code type="parameter">
   <![CDATA[
      vector<char>& iSequence1
   ]]>
  </code>
+
 </output>
-<output id="sequence2">
+
+
+
+<output id="sequence2" speed="1">
+
+ <!-- speed=1, make this the longest sequence for best performance -->
+ <!-- The forward banding iterator must make this variable nondecreasing, and vice versa for the backward iterator -->
+ <!-- Also, controls the order in which the coordinates appear in getPos() -->
+
  <alphabet idref="nucleotides"/>
  <identifier type="length" value="iLen2"/>
  <identifier type="sequence" value="iSequence2"/>
+
  <code type="parameter">
   <![CDATA[
      vector<char>& iSequence2
   ]]>
  </code>
+
 </output>
 
+
+
+
+
+<!-- Initialization clique to initialize the banding instance.
+     This also makes sure that an #include line is added at the top of the .cc output file. -->
+
+<code id="initialiseBanding" init="includeBandingHeader">
+
+  MyBanding bandingInstance( iSequence1.size(), iSequence2.size(), iWidth );
+
+  <code type="parameter" value="int iWidth"/>
+
+</code>
+
+
+<code id="includeBandingHeader" where="includes">
+
+#include "mybanding.h"
+
+</code>
+
+
+ 
+
+<!--  Banding of clique 2 -->
+
+<banding id="block2banding">
+ <code init="initialiseBanding">
+
+   bandingInstance
+
+ </code>
+ <code type="coordinate" output="sequence1" value="0"/>
+ <code type="coordinate" output="sequence2" value="1"/>
+</banding>
+
+
+
+
+
 <code id="initialise1" type="statement">
+
   <!-- This initialisation block requires some input parameters: -->
+
   <code type="parameter" value="double iSigma"/>
+
   <!-- Actual initialisation block -->
   <![CDATA[
 
@@ -71,10 +165,14 @@
   ]]>
 </code>
 
+
+
 <code id="initialise2" type="statement">
+
   <code type="parameter"> double iDelta </code>   <!-- insertion/deletion probability -->
   <code type="parameter"> double iTau   </code>   <!-- probability of going to the end state -->
   <code type="parameter"> double iR     </code>   <!-- indel length parameter ('gap extension probability') -->
+
   <![CDATA[
 
 /* Initialisation of the iT transition-probability array */
@@ -99,6 +197,9 @@
 
   ]]>
 </code>
+
+
+
 
 <!--  
       Emission probabilities.  
@@ -177,51 +278,77 @@
 <probability id="probSD"><code type="expression" init="initialise2"> iT[14] </code></probability>
 <probability id="probSE"><code type="expression" init="initialise2"> iT[15] </code></probability>
 
-<hmm id="Align">
- <description>  Simple probabilistic pairwise sequence aligner </description>
+
+
+<hmm id="AlignWithBanding">
+
+ <description>  Simple probabilistic pairwise sequence aligner, with banding  </description>
+
+
  <outputs id="outputs">
+  <!-- Define number of emissions and their ordering -->
   <output idref="sequence1"/>
   <output idref="sequence2"/>
  </outputs>
 
+
+ <!--  Defines "blocks", i.e. subgraphs that are non-cyclic with respect to each other -->
+
+
  <clique id="block1">
   <state id="start" emission="empty"/>
  </clique>
- <clique id="block2">
+
+ <clique id="block2withbanding">
+  <banding idref="block2banding"/>
   <state id="match"/>
   <state id="insert"/>
   <state id="delete"/>
  </clique>
+
  <clique id="block3">
   <state id="end"/>
  </clique>
+
+
  <graph>
   <clique idref="block1"/>
-  <clique idref="block2"/>
+  <clique idref="block2withbanding"/>
   <clique idref="block3"/>
  </graph>
+
+
+  <!--  Define all emissions for this HMM; relates output tape and code that calculates probabilities  -->
+
 
   <emission id="emit12">
    <output idref="sequence1"/>
    <output idref="sequence2"/>
    <probability idref="doubleEmissionProb"/>
   </emission>
+
   <emission id="emit1">
    <output idref="sequence1"/>
    <probability idref="singleEmissionProb1"/>
   </emission>
+
   <emission id="emit2">
    <output idref="sequence2"/>
    <probability idref="singleEmissionProb2"/>
   </emission>
+
   <emission id="empty">
    <probability><code type="expression"> 1.0 </code></probability>
   </emission>
+
+
 
   <!--  Define all transitions: "from" and "to" states, transition probability, and emission  
         It is permissible to assign emissions to states (see the end state).  In this case,
         all transitions going to that state should have no "emission" attribute.   
    -->
+  
+
   <transitions id="transitions">
   <transition id="trSE" from="start"  to="end"    probability="probSE" emission="empty"/>
   <transition id="trSM" from="start"  to="match"  probability="probSM" emission="emit12"/>
@@ -242,33 +369,146 @@
   <transition id="trDI" from="delete" to="insert" probability="probDI" emission="emit1"/>
   <transition id="trDD" from="delete" to="delete" probability="probDD" emission="emit2"/>
   <transition id="trDE" from="delete" to="end"    probability="probDE" emission="empty"/>
+
   </transitions>
+
 </hmm>
 
+
+
+<hmm id="Align">
+
+ <description>  Simple probabilistic pairwise sequence aligner  </description>
+
+
+ <outputs idref="outputs"/>
+
+
+ <!-- Re-define clique 2, this time without banding. -->
+ <clique id="block2">
+  <state idref="match"/>
+  <state idref="insert"/>
+  <state idref="delete"/>
+ </clique>
+
+
+ <graph>
+  <clique idref="block1"/>
+  <clique idref="block2"/>
+  <clique idref="block3"/>
+ </graph>
+
+
+  <transitions idref="transitions"/>
+
+</hmm>
+
+
+
 <!-- Code generation -->
+
+
+
 <forward outputTable="yes" baumWelch="no" name="Forward" id="fw">
-  <hmm idref="Align"/>
-</forward>
-<backward outputTable="no" baumWelch="transitions" name="BackwardBaumWelch" id="bwbw">
-  <hmm idref="Align"/>
-</backward>
-<backward outputTable="yes" baumWelch="no" name="Backward" id="bw">
+
   <!-- Specify HMM to make code for -->
   <hmm idref="Align"/>
+
+</forward>
+
+<backward outputTable="no" baumWelch="transitions" name="BackwardBaumWelch" id="bwbw">
+
+  <!-- Specify HMM to make code for -->
+  <hmm idref="Align"/>
+
 </backward>
+
+
+<backward outputTable="yes" baumWelch="no" name="Backward" id="bw">
+
+  <!-- Specify HMM to make code for -->
+  <hmm idref="Align"/>
+
+</backward>
+
+
 <sample name="Sample" id="smp">
+
   <hmm idref="Align"/>
+
 </sample>
+
+
 <viterbi name="Viterbi" id="vit">
+
   <hmm idref="Align"/>
+
 </viterbi>
 
+
+<forward outputTable="yes" baumWelch="no" name="ForwardBanding" id="fwbanding" cacheValues="yes">
+
+  <!-- Specify HMM to make code for -->
+  <hmm idref="AlignWithBanding"/>
+  <code idref="SparseDPTable"/>
+
+</forward>
+
+
+<backward outputTable="no" baumWelch="transitions" name="BackwardBaumWelchBanding" id="bwbwbanding" cacheValues="yes">
+
+  <!-- Specify HMM to make code for -->
+  <hmm idref="AlignWithBanding"/>
+  <code idref="SparseDPTable"/>
+
+</backward>
+
+
+<backward outputTable="yes" baumWelch="no" name="BackwardBanding" id="bwbanding" cacheValues="yes">
+
+  <!-- Specify HMM to make code for -->
+  <hmm idref="AlignWithBanding"/>
+  <code idref="SparseDPTable"/>
+
+</backward>
+
+
+<sample name="SampleBanding" id="smpbanding">
+
+  <hmm idref="AlignWithBanding"/>
+  <code idref="SparseDPTable"/>
+
+</sample>
+
+
+<viterbi name="ViterbiBanding" id="vitbanding">
+
+  <hmm idref="AlignWithBanding"/>
+  <code idref="SparseDPTable"/>
+
+</viterbi>
+
+
+
+
 <codeGeneration realtype="bfloat" file="aligner.cc" header="aligner.h" language="C++">
+
   <forward idref="fw"/>
   <backward idref="bwbw"/>
   <backward idref="bw"/>
   <sample idref="smp"/>
   <viterbi idref="vit"/>
+
+  <forward idref="fwbanding"/>
+  <backward idref="bwbwbanding"/>
+  <backward idref="bwbanding"/>
+  <sample idref="smpbanding"/>
+  <viterbi idref="vitbanding"/>
+
 </codeGeneration>
 
+ 
+
 </hml>
+
+

@@ -33,9 +33,6 @@
 #include <map>
 #include <cassert>
 
-// #define STRING2(x) #x
-// #define STRING(x) STRING2(x)
-// #pragma message "gnuc " STRING(__GNUC__)
 
 #ifdef __GNUC__
  #define HAVE_HASH_MAP
@@ -43,8 +40,7 @@
   #include <hash_map.h>
   namespace Sgi { using ::hash_map; }; // inherit globals
  #else
-  #include <ext/hash_map> // this generates a warning about deprecated headers
-  // #include <unordered_map> // which can be fixed by using this, but then you'd need to enable C++0x
+  #include <ext/hash_map>
   #if __GNUC_MINOR__ + __GNUC__ == 3
    namespace Sgi = std;               // GCC 3.0
   #else

@@ -17,8 +17,7 @@
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #
 aligner: main.cc aligner.cc aligner.h algebras.cc algebras.h dptables.h mybanding.h
-	./use-unused-vars.sh aligner.cc
-	g++ -Wno-strict-overflow -Wno-deprecated -o $@ -lstdc++ -O3 -ffast-math -finline-limit=10000 -Wall main.cc aligner.cc algebras.cc
+	g++ -o $@ -lstdc++ -O3 -ffast-math -finline-limit=10000 -Wall main.cc aligner.cc algebras.cc
 
 aligner.cc aligner.h: aligner.xml
 	../../bin/hmmoc aligner.xml

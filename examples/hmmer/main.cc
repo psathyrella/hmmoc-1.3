@@ -19,7 +19,6 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <string.h>
 
 extern hmmer_hmmShortReal iE[][20];
 extern hmmer_hmmShortReal iT[];

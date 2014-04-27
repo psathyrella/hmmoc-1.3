@@ -25,8 +25,8 @@
 #ifndef _algebras_h_
 #define _algebras_h_
 
-#include <cmath>
 #include <iostream>
+#include <cmath>
 #include <limits>
 
 using namespace std;

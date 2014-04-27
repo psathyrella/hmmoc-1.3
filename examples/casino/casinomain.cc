@@ -7,22 +7,20 @@
 int main(void) {
   Params iPar; // The parameters of the model
 
+  // The parameters of the model
+  Params iPar;
+
+  // Fill it with some values
   iPar.iGoHonest = 0.02;        // probability of going from Dishonest to the Honest state
   iPar.iGoDishonest = 0.05;     // probability of going from Honest to the Dishonest state
-  iPar.iGoStupid = 0.03;
   iPar.iGoStop = 0.00001;       // probability of going from either to the End state
+
   iPar.aEmitDishonest[0] = 0.1; 
   iPar.aEmitDishonest[1] = 0.1;
   iPar.aEmitDishonest[2] = 0.1;
   iPar.aEmitDishonest[3] = 0.1;
   iPar.aEmitDishonest[4] = 0.1;
   iPar.aEmitDishonest[5] = 0.5; // Probability of throwing a 6 is heavily favoured in the Dishonest state
-  iPar.aEmitStupid[0] = 0.5; 
-  iPar.aEmitStupid[1] = 0.1;
-  iPar.aEmitStupid[2] = 0.1;
-  iPar.aEmitStupid[3] = 0.1;
-  iPar.aEmitStupid[4] = 0.1;
-  iPar.aEmitStupid[5] = 0.1;
 
   //
   // Sample a path.  This uses the HMM that does not emit symbols, because we want to sample from the HMM
@@ -55,8 +53,6 @@ int main(void) {
 	iCurrentP = 1/6.0;
       } else if(pDPNE->getStateId(pTruePath->toState(i)) == "NEdishonest") {
 	iCurrentP = iPar.aEmitDishonest[iSymbol];
-      } else if(pDPNE->getStateId(pTruePath->toState(i)) == "NEstupid") {
-	iCurrentP = iPar.aEmitStupid[iSymbol];
       } else assert(0);
       iP -= iCurrentP;
     } while (iP > 0.0);
@@ -104,12 +100,11 @@ int main(void) {
 
   cout << "Baum Welch emission counts:"<<endl;
 
-  cout << setw(12) << " " << setw(12) << "Honest" << setw(12) << "Dishonest" << setw(12) << "Stupid" << endl;
+  cout << setw(12) << " " << setw(12) << "Honest" << setw(12) << "Dishonest" << endl;
   for (int i=0; i<6; i++) {
     cout << setw(12) << i
 	 << setw(12) << bw.emissionBaumWelchCount1[i][ bw.emissionIndex("emitHonest") ]
 	 << setw(12) << bw.emissionBaumWelchCount1[i][ bw.emissionIndex("emitDishonest") ]
-	 << setw(12) << bw.emissionBaumWelchCount1[i][ bw.emissionIndex("emitStupid") ]
 	 << endl;
   }
 
@@ -123,16 +118,12 @@ int main(void) {
       cout << "H";
     } else if(pDPNE->getStateId(pTruePath->toState(i)) == "NEdishonest") {
       cout << "D";
-    } else if(pDPNE->getStateId(pTruePath->toState(i)) == "NEstupid") {
-      cout << "S";
     } else assert(0);
     cout << " Viterbi:";
     if(pViterbiDP->getStateId(iViterbiPath.toState(i)) == "honest") {
       cout << "H";
     } else if(pViterbiDP->getStateId(iViterbiPath.toState(i)) == "dishonest") {
       cout << "D";
-    } else if(pViterbiDP->getStateId(iViterbiPath.toState(i)) == "stupid") {
-      cout << "S";
     } else assert(0);
 
     double iPosterior = pFWDP->getProb("honest",i+1)*pBWDP->getProb("honest",i+1)/iFWProb;
