@@ -40,7 +40,8 @@
   #include <hash_map.h>
   namespace Sgi { using ::hash_map; }; // inherit globals
  #else
-  #include <ext/hash_map>
+  #include <ext/hash_map> // this generates a warning about deprecated headers
+  // #include <unordered_map> // which can be fixed by using this, but then you'd need to enable C++0x
   #if __GNUC_MINOR__ + __GNUC__ == 3
    namespace Sgi = std;               // GCC 3.0
   #else
